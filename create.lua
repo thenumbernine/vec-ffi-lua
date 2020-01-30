@@ -27,22 +27,18 @@ vectorClass = ffi.metatype('<?=vectorType?>', {
 local table = require 'ext.table'
 local op = require 'ext.op'
 
-local opinfos = table{
-	{name='add', symbol='+'},
-	{name='sub', symbol='-'},
-	{name='mul', symbol='*'},
-	{name='div', symbol='/'},
-	{name='mod', symbol='%'},
-	{name='pow', symbol='^'},
+local opnames = table{
+	'add', 'sub', 'mul', 'div', 'mod', 'pow',
+	-- >= 5.3
+	'idiv', 'band', 'bor', 'bxnot', 'shl', 'shr',
 }
 
--- TODO maybe move the 'symbol' field into ext.op ?
-if op.idiv then opinfos:insert{name='idiv', symbol='//'} end
-if op.band then opinfos:insert{name='band', symbol='&'} end
-if op.bor then opinfos:insert{name='bor', symbol='&'} end
-if op.bxor then opinfos:insert{name='bxor', symbol='~'} end
-if op.shl then opinfos:insert{name='shl', symbol='<<'} end
-if op.shr then opinfos:insert{name='shr', symbol='>>'} end
+local opinfos = opnames:mapi(function(name,_,t)
+	local symbol = op.symbols[name]
+	if symbol then
+		return {name=name, symbol=symbol}, #t+1
+	end
+end)
 
 -- TODO unary operators
 
