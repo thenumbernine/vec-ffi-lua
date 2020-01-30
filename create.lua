@@ -15,11 +15,8 @@ return function(dim, ctype, suffix, classCode)
 local ffi = require 'ffi'
 
 ffi.cdef[[
-typedef union {
-	<?=ctype?> ptr[<?=dim?>];
-	struct {
-		<?=ctype?> <?=xs:concat', '?>;
-	};
+typedef struct {
+	<?=ctype?> <?=xs:concat', '?>;
 } <?=vectorType?>;
 ]]
 
@@ -90,16 +87,18 @@ for _,info in ipairs(opinfos) do
 		normalize = function(v) return v / #v end,
 		
 		lInfLength = function(v)	-- L-infinite length
-			local dist = math.abs(v.ptr[0])
+			local fp = v:ptr()
+			local dist = math.abs(fp[0])
 			for i=1,<?=dim?>-1 do
-				dist = math.max(dist, math.abs(v.ptr[i]))
+				dist = math.max(dist, math.abs(fp[i]))
 			end
 			return dist
 		end,
 		l1Length = function(v)	--L-1 length
-			local dist = math.abs(v.ptr[0])
+			local fp = v:ptr()
+			local dist = math.abs(fp[0])
 			for i=1,<?=dim?>-1 do
-				dist = dist + math.abs(v.ptr[i])
+				dist = dist + math.abs(fp[i])
 			end
 			return dist
 		end,
@@ -124,6 +123,7 @@ for _,info in ipairs(opinfos) do
 			end
 			return self
 		end,
+		ptr = function(self) return ffi.cast('<?=ctype?>*', self) end,
 		unpack = function(self) return <?=xs:mapi(function(x) return 'self.'..x end):concat(', ')?> end,
 		toTable = function(self) return {self:unpack()} end,
 		
