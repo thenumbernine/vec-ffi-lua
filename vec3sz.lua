@@ -1,1 +1,1 @@
-return require 'ffi.vec.create_ffi'(3,'size_t','sz')
+return require 'vec-ffi.create'(3,'size_t','sz')

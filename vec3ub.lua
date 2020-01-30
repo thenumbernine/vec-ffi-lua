@@ -1,2 +1,2 @@
-local createVectorClass = require 'ffi.vec.create_ffi'
+local createVectorClass = require 'vec-ffi.create'
 return createVectorClass(3, 'unsigned char', 'ub')
