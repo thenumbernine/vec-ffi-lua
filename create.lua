@@ -24,6 +24,7 @@ typedef union {
 	<?=ctype?> s[<?=dim?>];
 } <?=vectorType?>;
 ]]
+assert(ffi.sizeof'<?=vectorType?>' == <?=dim?> * ffi.sizeof'<?=ctype?>')
 
 local vectorClass
 vectorClass = ffi.metatype('<?=vectorType?>', {
