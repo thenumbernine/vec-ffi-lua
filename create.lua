@@ -15,8 +15,13 @@ return function(dim, ctype, suffix, classCode)
 local ffi = require 'ffi'
 
 ffi.cdef[[
-typedef struct {
-	<?=ctype?> <?=xs:concat', '?>;
+typedef union {
+	//struct has to come first for the ffi api to allow component initialization
+	struct {
+		<?=ctype?> <?=xs:concat', '?>;
+	};
+	
+	<?=ctype?> s[<?=dim?>];
 } <?=vectorType?>;
 ]]
 
@@ -65,9 +70,9 @@ for _,info in ipairs(opinfos) do
 	end,
 	__len = function(a) return a:length() end,
 	__tostring = function(v)
-		return <?=
+		return '(' .. <?=
 			xs:mapi(function(x) return 'tostring(v.'..x..')' end):concat(' .. ", " .. ')
-		?>
+		?> .. ')'
 	end,
 	__concat = function(a,b) return tostring(a) .. tostring(b) end,
 	__index = {	-- TODO make __index point to self?
@@ -83,7 +88,7 @@ for _,info in ipairs(opinfos) do
 		normalize = function(v) return v / #v end,
 		
 		lInfLength = function(v)	-- L-infinite length
-			local fp = v:ptr()
+			local fp = v.s
 			local dist = math.abs(fp[0])
 			for i=1,<?=dim?>-1 do
 				dist = math.max(dist, math.abs(fp[i]))
@@ -91,7 +96,7 @@ for _,info in ipairs(opinfos) do
 			return dist
 		end,
 		l1Length = function(v)	--L-1 length
-			local fp = v:ptr()
+			local fp = v.s
 			local dist = math.abs(fp[0])
 			for i=1,<?=dim?>-1 do
 				dist = dist + math.abs(fp[i])
@@ -119,10 +124,9 @@ for _,info in ipairs(opinfos) do
 			end
 			return self
 		end,
-		ptr = function(self) return ffi.cast('<?=ctype?>*', self) end,
 		unpack = function(self) return <?=xs:mapi(function(x) return 'self.'..x end):concat(', ')?> end,
 		toTable = function(self) return {self:unpack()} end,
-		
+
 		<?=classCode?>
 	},
 })
