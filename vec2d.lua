@@ -1,2 +1,1 @@
-local createVectorClass = require 'vec-ffi.create'
-return createVectorClass(2, 'double', 'd')
+return require 'vec-ffi.create_vec2'{ctype='double'}
