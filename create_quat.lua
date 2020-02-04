@@ -9,8 +9,11 @@ return function(ctype)
 		-- create the 3type associated with our quat 4type
 		vec3 = require('vec-ffi.vec3'..suffix[ctype]),
 		
+-- TODO allow self.references somehow
+-- how about a callback to modify cl?
+-- but then you need to pass in the whole function environment ...
 		classCode = [[
-	mul = function(q, r, res)
+	__mul = function(q, r, res)
 		if not res then res = metatype() end
 		
 		local a = (q.w + q.x) * (r.w + r.x)
@@ -29,7 +32,8 @@ return function(ctype)
 		
 		return res
 	end,
-	__mul = cl.mul,
+
+-- TODO .mul == .__mul
 
 	__div = function(a,b)
 		return a * b:conjugate() / b:lenSq()
