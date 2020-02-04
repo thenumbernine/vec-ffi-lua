@@ -4,18 +4,25 @@ source = {
 	url = "git+https://github.com/thenumbernine/vec-ffi-lua.git"
 }
 description = {
-	summary = "Vector class for LuaJIT",
 	detailed = "Vector class for LuaJIT",
 	homepage = "https://github.com/thenumbernine/vec-ffi-lua",
 	license = "MIT"
 }
 dependencies = {
-	"lua ~> 5.1"
+	"lua >= 5.1"
 }
 build = {
 	type = "builtin",
 	modules = {
-		["vec-ffi.create"] = "create.lua",
+		["vec-ffi.create_quat"] = "create_quat.lua",
+		["vec-ffi.create_vec"] = "create_vec.lua",
+		["vec-ffi.create_vec2"] = "create_vec2.lua",
+		["vec-ffi.create_vec3"] = "create_vec3.lua",
+		["vec-ffi.quatd"] = "quatd.lua",
+		["vec-ffi.quatf"] = "quatf.lua",
+		["vec-ffi.suffix"] = "suffix.lua",
+		["vec-ffi.tests.test"] = "tests/test.lua",
+		["vec-ffi"] = "vec-ffi.lua",
 		["vec-ffi.vec2b"] = "vec2b.lua",
 		["vec-ffi.vec2d"] = "vec2d.lua",
 		["vec-ffi.vec2f"] = "vec2f.lua",
