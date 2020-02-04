@@ -69,7 +69,6 @@ for _,info in ipairs(opinfos) do
 	__eq = function(a,b) 
 		return <?=xs:mapi(function(x) return 'a.'..x..' == '..'b.'..x end):concat(' and ')?>
 	end,
-	__len = function(a) return a:length() end,
 	__tostring = function(v)
 		return '(' .. <?=
 			xs:mapi(function(x) return 'tostring(v.'..x..')' end):concat(' .. ", " .. ')
@@ -80,13 +79,15 @@ for _,info in ipairs(opinfos) do
 		sizeof = ffi.sizeof('<?=vectorType?>'),	
 		type = '<?=vectorType?>',
 		elemType = '<?=ctype?>',
-		dim = <?=dim?>,	-- # is for length, dim is for dimension
+		
+		dim = <?=dim?>,
+		
 		length = function(a) return math.sqrt(a:lenSq()) end,
 		lenSq = function(a) return a:dot(a) end,
 		dot = function(a,b) return <?=
 			xs:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 		?> end,
-		normalize = function(v) return v / #v end,
+		normalize = function(v) return v / v:length() end,
 		
 		lInfLength = function(v)	-- L-infinite length
 			local fp = v.s
