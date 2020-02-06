@@ -143,11 +143,7 @@ for _,info in ipairs(opinfos) do
 }
 
 -- allow the caller to override/add any functions
-for k,v in pairs{
-	<?=classCode?>
-} do
-	cl[k] = v
-end
+]=]..args.classCode..[=[
 
 cl.__index = cl
 

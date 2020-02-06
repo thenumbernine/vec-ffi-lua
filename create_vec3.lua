@@ -6,22 +6,23 @@ return function(args)
 		
 		classCode = [[
 
-	determinant = function(a,b,c)
-		return a.x * b.y * c.z
-			+ a.y * b.z * c.x
-			+ a.z * b.x * c.y
-			- a.z * b.y * c.x
-			- a.y * b.x * c.z
-			- a.x * b.z * c.y
-	end,
+cl.determinant = function(a,b,c)
+	return a.x * b.y * c.z
+		+ a.y * b.z * c.x
+		+ a.z * b.x * c.y
+		- a.z * b.y * c.x
+		- a.y * b.x * c.z
+		- a.x * b.z * c.y
+end
 
-	-- such that a:cross(b):dot(c) = vec3.determinant(a,b,c) = volume of parallelepiped with sides a,b,c
-	cross = function(a,b)
-		return metatype(
-			a.y * b.z - a.z * b.y,
-			a.z * b.x - a.x * b.z,
-			a.x * b.y - a.y * b.x)
-	end,
+-- such that a:cross(b):dot(c) = metatype.determinant(a,b,c) = volume of parallelepiped with sides a,b,c
+cl.cross = function(a,b)
+	return metatype(
+		a.y * b.z - a.z * b.y,
+		a.z * b.x - a.x * b.z,
+		a.x * b.y - a.y * b.x)
+end
+
 ]],
 	}))
 end
