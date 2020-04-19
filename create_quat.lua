@@ -119,6 +119,7 @@ cl.rotate = function(self, v, res)
 	res.x = v4.x
 	res.y = v4.y
 	res.z = v4.z
+	return res
 end
 
 function cl:conjugate(res)
