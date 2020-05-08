@@ -25,7 +25,7 @@ return function(args)
 local ffi = require 'ffi'
 local math = require 'ext.math'
 
-ffi.cdef[[
+local typeCode = [[
 typedef union {
 	//struct has to come first for the ffi api to allow component initialization
 	struct {
@@ -40,6 +40,8 @@ typedef union {
 	<?=ctype?> s[<?=dim?>];
 } <?=vectype?>;
 ]]
+
+ffi.cdef(typeCode)
 assert(ffi.sizeof'<?=vectype?>' == <?=dim?> * ffi.sizeof'<?=ctype?>')
 
 local metatype
@@ -50,6 +52,7 @@ local cl = {
 	elemType = '<?=ctype?>',
 	dim = <?=dim?>,
 
+	typeCode = typeCode,
 
 <? -- operations that are per-component or scalar 
 local table = require 'ext.table'
