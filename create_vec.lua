@@ -31,7 +31,12 @@ typedef union {
 	struct {
 		<?=ctype?> <?=fields:concat', '?>;
 	};
-	
+
+	//OpenCL compat
+	struct {
+		<?=ctype?> <?=require 'ext.range'(0,dim-1):mapi(function(i) return 's'..i end):concat', '?>;
+	};
+
 	<?=ctype?> s[<?=dim?>];
 } <?=vectype?>;
 ]]
