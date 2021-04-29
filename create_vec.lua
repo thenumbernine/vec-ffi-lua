@@ -76,7 +76,7 @@ end)
 for _,info in ipairs(opinfos) do
 ?>	__<?=info.name?> = function(a,b)
 		if type(b) == 'cdata' then
-			return metatype( <?=fields:mapi(function(x) 
+			return metatype(<?=fields:mapi(function(x) 
 				return 'a.'..x..info.symbol..'b.'..x 
 			end):concat(', ')?>)
 		end
@@ -90,24 +90,50 @@ for _,info in ipairs(opinfos) do
 	end,
 <? end
 ?>
-	__unm = function(v) return v * -1 end,
+	__unm = function(v)
+		return v * -1
+	end,
+	
 	__eq = function(a,b) 
 		return <?=fields:mapi(function(x) return 'a.'..x..' == '..'b.'..x end):concat(' and ')?>
 	end,
+	
 	__tostring = function(v)
 		return '(' .. <?=
-			fields:mapi(function(x) return 'tostring(v.'..x..')' end):concat(' .. ", " .. ')
+			fields:mapi(function(x) 
+				return 'tostring(v.'..x..')'
+			end):concat(' .. ", " .. ')
 		?> .. ')'
 	end,
-	__concat = function(a,b) return tostring(a) .. tostring(b) end,
+	
+	__concat = function(a, b)
+		return tostring(a) .. tostring(b)
+	end,
 
+	map = function(v, m)
+		return metatype(<?=
+			fields:mapi(function(x)
+				return 'm(v.'..x..')'
+			end):concat', '
+		?>)
+	end,
 
-	length = function(a) return math.sqrt(a:lenSq()) end,
-	lenSq = function(a) return a:dot(a) end,
-	dot = function(a,b) return <?=
-		fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
-	?> end,
-	normalize = function(v) return v / v:length() end,
+	length = function(a)
+		return math.sqrt(a:lenSq())
+	end,
+	
+	lenSq = function(a)
+		return a:dot(a)
+	end,
+	
+	dot = function(a,b)
+		return <?=
+fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
+?>	end,
+	
+	normalize = function(v)
+		return v / v:length()
+	end,
 	
 	lInfLength = function(v)	-- L-infinite length
 		local fp = v.s
@@ -117,6 +143,7 @@ for _,info in ipairs(opinfos) do
 		end
 		return dist
 	end,
+	
 	l1Length = function(v)	--L-1 length
 		local fp = v.s
 		local dist = math.abs(fp[0])
@@ -146,8 +173,14 @@ for _,info in ipairs(opinfos) do
 		end
 		return self
 	end,
-	unpack = function(self) return <?=fields:mapi(function(x) return 'self.'..x end):concat(', ')?> end,
-	toTable = function(self) return {self:unpack()} end,
+	
+	unpack = function(self)
+		return <?=fields:mapi(function(x) return 'self.'..x end):concat(', ')?>
+	end,
+	
+	toTable = function(self)
+		return {self:unpack()}
+	end,
 }
 
 -- allow the caller to override/add any functions
