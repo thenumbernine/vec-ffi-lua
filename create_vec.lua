@@ -95,6 +95,11 @@ for _,info in ipairs(opinfos) do
 	end,
 	
 	__eq = function(a,b) 
+		if not (type(a) == 'table' or type(a) == 'cdata')
+		or not (type(b) == 'table' or type(b) == 'cdata')
+		then
+			return false
+		end
 		return <?=fields:mapi(function(x) return 'a.'..x..' == '..'b.'..x end):concat(' and ')?>
 	end,
 	
