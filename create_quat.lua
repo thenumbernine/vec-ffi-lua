@@ -66,6 +66,7 @@ cl.toAngleAxis = function(self, res)
 	return res
 end
 
+-- TODO epsilon-test this?  so no nans?
 cl.fromAngleAxis = function(q, x, y, z, degrees)
 	local vlen = math.sqrt(x*x + y*y + z*z)
 	local radians = math.rad(degrees)
