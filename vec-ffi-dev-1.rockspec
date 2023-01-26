@@ -4,12 +4,13 @@ source = {
 	url = "git+https://github.com/thenumbernine/vec-ffi-lua.git"
 }
 description = {
-	detailed = "Vector class for LuaJIT",
+	summary = "Vector Class for LuaJIT",
+	detailed = "Vector Class for LuaJIT",
 	homepage = "https://github.com/thenumbernine/vec-ffi-lua",
-	license = "MIT"
+	license = "MIT",
 }
 dependencies = {
-	"lua >= 5.1"
+	"lua >= 5.1",
 }
 build = {
 	type = "builtin",
@@ -41,5 +42,5 @@ build = {
 		["vec-ffi.vec4f"] = "vec4f.lua",
 		["vec-ffi.vec4i"] = "vec4i.lua",
 		["vec-ffi.vec4ub"] = "vec4ub.lua"
-	}
+	},
 }
