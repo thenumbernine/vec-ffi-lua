@@ -3,7 +3,7 @@ local table = require 'ext.table'
 return function(args)
 	return require 'vec-ffi.create_vec'(table(args, {
 		dim = args.dim or 3,	-- allow override, for vec4 to inherit vec3's routines, etc
-		
+
 		classCode = [[
 
 cl.determinant = function(a,b,c)

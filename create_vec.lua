@@ -14,8 +14,8 @@ args:
 --]]
 return function(args)
 	assert(args)
-	args = table(args)	
-	assert(args.dim)	
+	args = table(args)
+	assert(args.dim)
 	assert(args.ctype)
 	args.suffix = args.suffix or suffix[args.ctype]
 	args.classCode = args.classCode or ''
@@ -47,14 +47,14 @@ assert(ffi.sizeof'<?=vectype?>' == <?=dim?> * ffi.sizeof'<?=ctype?>')
 local metatype
 
 local cl = {
-	sizeof = ffi.sizeof('<?=vectype?>'),	
+	sizeof = ffi.sizeof('<?=vectype?>'),
 	type = '<?=vectype?>',
 	elemType = '<?=ctype?>',
 	dim = <?=dim?>,
 
 	typeCode = typeCode,
 
-<? -- operations that are per-component or scalar 
+<? -- operations that are per-component or scalar
 local table = require 'ext.table'
 local op = require 'ext.op'
 
@@ -76,16 +76,16 @@ end)
 for _,info in ipairs(opinfos) do
 ?>	__<?=info.name?> = function(a,b)
 		if type(b) == 'cdata' then
-			return metatype(<?=fields:mapi(function(x) 
-				return 'a.'..x..info.symbol..'b.'..x 
+			return metatype(<?=fields:mapi(function(x)
+				return 'a.'..x..info.symbol..'b.'..x
 			end):concat(', ')?>)
 		end
 		b = tonumber(b)
-		if b == nil then 
-			error("can't handle "..tostring(b).." (type "..type(b)..")") 
+		if b == nil then
+			error("can't handle "..tostring(b).." (type "..type(b)..")")
 		end
-		return metatype(<?=fields:mapi(function(x) 
-			return 'a.'..x..info.symbol..'b' 
+		return metatype(<?=fields:mapi(function(x)
+			return 'a.'..x..info.symbol..'b'
 		end):concat(', ')?>)
 	end,
 <? end
@@ -93,8 +93,8 @@ for _,info in ipairs(opinfos) do
 	__unm = function(v)
 		return v * -1
 	end,
-	
-	__eq = function(a,b) 
+
+	__eq = function(a,b)
 		if not (type(a) == 'table' or type(a) == 'cdata')
 		or not (type(b) == 'table' or type(b) == 'cdata')
 		then
@@ -102,15 +102,15 @@ for _,info in ipairs(opinfos) do
 		end
 		return <?=fields:mapi(function(x) return 'a.'..x..' == '..'b.'..x end):concat(' and ')?>
 	end,
-	
+
 	__tostring = function(v)
 		return '(' .. <?=
-			fields:mapi(function(x) 
+			fields:mapi(function(x)
 				return 'tostring(v.'..x..')'
 			end):concat(' .. ", " .. ')
 		?> .. ')'
 	end,
-	
+
 	__concat = function(a, b)
 		return tostring(a) .. tostring(b)
 	end,
@@ -126,20 +126,20 @@ for _,info in ipairs(opinfos) do
 	length = function(a)
 		return math.sqrt(a:lenSq())
 	end,
-	
+
 	lenSq = function(a)
 		return a:dot(a)
 	end,
-	
+
 	dot = function(a,b)
 		return <?=
 fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 ?>	end,
-	
+
 	normalize = function(v)
 		return v / v:length()
 	end,
-	
+
 	lInfLength = function(v)	-- L-infinite length
 		local fp = v.s
 		local dist = math.abs(fp[0])
@@ -148,7 +148,7 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 		end
 		return dist
 	end,
-	
+
 	l1Length = function(v)	--L-1 length
 		local fp = v.s
 		local dist = math.abs(fp[0])
@@ -157,11 +157,11 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 		end
 		return dist
 	end,
-	
+
 	volume = function(v)
 		return <?=fields:mapi(function(x) return 'v.'..x end):concat(' * ')?>
 	end,
-	
+
 	set = function(self, v, v2, ...)
 		if type(v) == 'cdata' then
 			<?=fields:mapi(function(x) return 'self.'..x..' = v.'..x end):concat(' ')?>
@@ -178,11 +178,11 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 		end
 		return self
 	end,
-	
+
 	unpack = function(self)
 		return <?=fields:mapi(function(x) return 'self.'..x end):concat(', ')?>
 	end,
-	
+
 	toTable = function(self)
 		return {self:unpack()}
 	end,

@@ -5,10 +5,10 @@ return function(ctype)
 		dim = 4,
 		ctype = ctype,
 		vectype = 'quat'..suffix[ctype]..'_t',
-		
+
 		-- create the 3type associated with our quat 4type
 		vec3require = 'vec-ffi.vec3'..suffix[ctype],
-		
+
 -- TODO allow self.references somehow
 -- how about a callback to modify cl?
 -- but then you need to pass in the whole function environment ...
@@ -17,7 +17,7 @@ local vec3 = require '<?=vec3require?>'
 
 cl.mul = function(q, r, res)
 	if not res then res = metatype() end
-	
+
 	local a = (q.w + q.x) * (r.w + r.x)
 	local b = (q.z - q.y) * (r.y - r.z)
 	local c = (q.x - q.w) * (r.y + r.z)
@@ -31,7 +31,7 @@ cl.mul = function(q, r, res)
 	res.y = -c + .5 * ( e - f + g - h)
 	res.z = -d + .5 * ( e - f - g + h)
 	res.w = b + .5 * (-e - f + g + h)
-	
+
 	return res
 end
 
@@ -62,7 +62,7 @@ cl.toAngleAxis = function(self, res)
 		res.z = self.z * scale
 		res.w = halfangle * 360 / math.pi
 	end
-	
+
 	return res
 end
 
