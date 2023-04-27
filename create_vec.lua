@@ -123,12 +123,19 @@ for _,info in ipairs(opinfos) do
 		?>)
 	end,
 
+	lenSq = function(a)
+		return a:dot(a)
+	end,
 	length = function(a)
 		return math.sqrt(a:lenSq())
 	end,
 
-	lenSq = function(a)
+	-- naming compat with Matlab/matrix
+	normSq = function(a)
 		return a:dot(a)
+	end,
+	norm = function(a)
+		return math.sqrt(a:lenSq())
 	end,
 
 	dot = function(a,b)
