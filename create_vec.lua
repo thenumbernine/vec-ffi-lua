@@ -130,6 +130,15 @@ for _,info in ipairs(opinfos) do
 		return math.sqrt(a:lenSq())
 	end,
 
+	dot = function(a,b)
+		return <?=
+fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
+?>	end,
+
+	normalize = function(v)
+		return v / v:length()
+	end,
+
 	-- naming compat with Matlab/matrix
 	normSq = function(a)
 		return a:dot(a)
@@ -137,13 +146,7 @@ for _,info in ipairs(opinfos) do
 	norm = function(a)
 		return math.sqrt(a:lenSq())
 	end,
-
-	dot = function(a,b)
-		return <?=
-fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
-?>	end,
-
-	normalize = function(v)
+	unit = function(v)
 		return v / v:length()
 	end,
 
