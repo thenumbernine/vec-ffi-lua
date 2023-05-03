@@ -113,6 +113,50 @@ cl.toMatrix = function(q, mat)
 	return mat
 end
 
+-- vec-ffi's quat's fromMatrix uses col-major Lua-table-of-vec3s (just like 'toMatrix')
+-- https://math.stackexchange.com/a/3183435/206369
+cl.fromMatrix = function(q, mat)
+	local m00, m01, m02 = mat[1]:unpack()
+	local m10, m11, m12 = mat[2]:unpack()
+	local m20, m21, m22 = mat[3]:unpack()
+	local t
+	if m22 < 0 then
+		if m00 > m11 then
+			t = 1 + m00 - m11 - m22
+			q.x = t
+			q.y = m01+m10
+			q.z = m20+m02
+			q.w = m12-m21
+		else
+			t = 1 - m00 + m11 - m22
+			q.x = m01+m10
+			q.y = t
+			q.z = m12+m21
+			q.w = m20-m02
+		end
+	else
+		if m00 < -m11 then
+			t = 1 - m00 - m11 + m22
+			q.x = m20+m02
+			q.y = m12+m21
+			q.z = t
+			q.w = m01-m10
+		else
+			t = 1 + m00 + m11 + m22
+			q.x = m12-m21
+			q.y = m20-m02
+			q.z = m01-m10
+			q.w = t
+		end
+	end
+	assert(t, "somehow we missed this")
+	q.x = q.x * .5 / math.sqrt(t)
+	q.y = q.y * .5 / math.sqrt(t)
+	q.z = q.z * .5 / math.sqrt(t)
+	q.w = q.w * .5 / math.sqrt(t)
+	return q
+end
+
 cl.rotate = function(self, v, res)
 	res = res or vec3()
 	-- TODO get rid of the extra object creations
