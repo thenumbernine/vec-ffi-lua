@@ -48,11 +48,44 @@ local metatype
 
 local cl = {
 	sizeof = ffi.sizeof('<?=vectype?>'),
-	type = '<?=vectype?>',
+	type = '<?=vectype?>',	-- TODO maybe 'name' is better?
 	elemType = '<?=ctype?>',
 	dim = <?=dim?>,
 
 	typeCode = typeCode,
+
+	-- matches behavior ext.class
+	-- but ofc no inheritence
+	isa = function(o)
+		return type(o) == 'cdata'
+		and ffi.typeof(o) == metatype
+	end,
+
+	unpack = function(self)
+		return <?=fields:mapi(function(x) return 'self.'..x end):concat(', ')?>
+	end,
+	
+	-- TODO between this and ffi.cpp.vector, one is toTable the other is totable ... which to use?
+	toTable = function(self)
+		return {self:unpack()}
+	end,
+
+	set = function(self, v, v2, ...)
+		if type(v) == 'cdata' then
+			<?=fields:mapi(function(x) return 'self.'..x..' = v.'..x end):concat(' ')?>
+		elseif type(v) == 'table' then
+			<?=fields:mapi(function(x,key) return 'self.'..x..' = v['..key..']' end):concat(' ')?>
+		else
+			if v2 == nil then
+				<?=fields:mapi(function(x,key) return 'self.'..x..' = v' end):concat(' ')?>
+			else
+				local args = {v, v2, ...}
+				assert(#args == <?=dim?>)
+				<?=fields:mapi(function(x,key) return 'self.'..x..' = args['..key..']' end):concat(' ')?>
+			end
+		end
+		return self
+	end,
 
 <? -- operations that are per-component or scalar
 local table = require 'ext.table'
@@ -170,31 +203,6 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 
 	volume = function(v)
 		return <?=fields:mapi(function(x) return 'v.'..x end):concat(' * ')?>
-	end,
-
-	set = function(self, v, v2, ...)
-		if type(v) == 'cdata' then
-			<?=fields:mapi(function(x) return 'self.'..x..' = v.'..x end):concat(' ')?>
-		elseif type(v) == 'table' then
-			<?=fields:mapi(function(x,key) return 'self.'..x..' = v['..key..']' end):concat(' ')?>
-		else
-			if v2 == nil then
-				<?=fields:mapi(function(x,key) return 'self.'..x..' = v' end):concat(' ')?>
-			else
-				local args = {v, v2, ...}
-				assert(#args == <?=dim?>)
-				<?=fields:mapi(function(x,key) return 'self.'..x..' = args['..key..']' end):concat(' ')?>
-			end
-		end
-		return self
-	end,
-
-	unpack = function(self)
-		return <?=fields:mapi(function(x) return 'self.'..x end):concat(', ')?>
-	end,
-
-	toTable = function(self)
-		return {self:unpack()}
 	end,
 }
 
