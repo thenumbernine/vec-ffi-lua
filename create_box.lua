@@ -80,7 +80,7 @@ local cl = {
 	end,
 
 	-- static initializer for empty box
-	makeempty = function()
+	empty = function()
 		return metatype(
 			vectorClass(<?=range(dim):mapi(function() return 'math.huge' end):concat', '?>),
 			vectorClass(<?=range(dim):mapi(function() return '-math.huge' end):concat', '?>)
