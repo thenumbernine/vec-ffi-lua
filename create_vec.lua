@@ -87,6 +87,31 @@ local cl = {
 		return self
 	end,
 
+	__eq = function(a,b)
+		if not (type(a) == 'table' or type(a) == 'cdata')
+		or not (type(b) == 'table' or type(b) == 'cdata')
+		then
+			return false
+		end
+		return <?=fields:mapi(function(x) return 'a.'..x..' == '..'b.'..x end):concat(' and ')?>
+	end,
+
+	__tostring = function(v)
+		return '(' .. <?=
+			fields:mapi(function(x)
+				return 'tostring(v.'..x..')'
+			end):concat(' .. ", " .. ')
+		?> .. ')'
+	end,
+
+	__concat = function(a, b)
+		return tostring(a) .. tostring(b)
+	end,
+
+
+-- from here on our, vec-specific functions:
+
+
 <? -- operations that are per-component or scalar
 local table = require 'ext.table'
 local op = require 'ext.op'
@@ -125,27 +150,6 @@ for _,info in ipairs(opinfos) do
 ?>
 	__unm = function(v)
 		return v * -1
-	end,
-
-	__eq = function(a,b)
-		if not (type(a) == 'table' or type(a) == 'cdata')
-		or not (type(b) == 'table' or type(b) == 'cdata')
-		then
-			return false
-		end
-		return <?=fields:mapi(function(x) return 'a.'..x..' == '..'b.'..x end):concat(' and ')?>
-	end,
-
-	__tostring = function(v)
-		return '(' .. <?=
-			fields:mapi(function(x)
-				return 'tostring(v.'..x..')'
-			end):concat(' .. ", " .. ')
-		?> .. ')'
-	end,
-
-	__concat = function(a, b)
-		return tostring(a) .. tostring(b)
 	end,
 
 	map = function(v, m)

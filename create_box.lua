@@ -60,6 +60,30 @@ local cl = {
 		return {self:unpack()}
 	end,
 
+	__eq = function(a,b)
+		if not (type(a) == 'table' or type(a) == 'cdata')
+		or not (type(b) == 'table' or type(b) == 'cdata')
+		then
+			return false
+		end
+		return <?=fields:mapi(function(x) return 'a.'..x..' == '..'b.'..x end):concat(' and ')?>
+	end,
+
+	__tostring = function(v)
+		return '(' .. <?=
+			fields:mapi(function(x)
+				return 'tostring(v.'..x..')'
+			end):concat(' .. ", " .. ')
+		?> .. ')'
+	end,
+
+	__concat = function(a, b)
+		return tostring(a) .. tostring(b)
+	end,
+
+
+-- from here on our, box-specific functions:
+
 
 	-- 'b' is a 'box3', clamps 'self' to be within 'b'
 	clamp = function(self, b)
