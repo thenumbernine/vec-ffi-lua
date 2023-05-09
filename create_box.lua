@@ -21,7 +21,7 @@ local dim = vectype.dim
 local dim = <?=dim?>
 
 local typeCode = [[
-typedef union {
+typedef union <?=boxtype?> {
 	struct {
 		<?=vectype.type?> <?=fields:concat', '?>;
 	};

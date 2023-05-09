@@ -26,7 +26,7 @@ local ffi = require 'ffi'
 local math = require 'ext.math'
 
 local typeCode = [[
-typedef union {
+typedef union <?=vectype?> {
 	//struct has to come first for the ffi api to allow component initialization
 	struct {
 		<?=ctype?> <?=fields:concat', '?>;
