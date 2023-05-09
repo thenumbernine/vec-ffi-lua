@@ -87,7 +87,7 @@ local cl = {
 
 	-- 'b' is a 'box3', clamps 'self' to be within 'b'
 	clamp = function(self, b)
-		for i=0,2 do
+		for i=0,dim-1 do
 			if self.min.s[i] < b.min.s[i] then self.min.s[i] = b.min.s[i] end
 			if self.max.s[i] > b.max.s[i] then self.max.s[i] = b.max.s[i] end
 		end
@@ -97,7 +97,7 @@ local cl = {
 	-- 'v' is a vec3, stretches 'self' to contain 'v'
 	-- TODO same could be done with a box, stretch self's min by b's min, stretch self's max by b's max
 	stretch = function(self, v)
-		for i=0,2 do
+		for i=0,dim-1 do
 			self.min.s[i] = math.min(self.min.s[i], v.s[i])
 			self.max.s[i] = math.max(self.max.s[i], v.s[i])
 		end
