@@ -80,7 +80,7 @@ local cl = {
 				<?=fields:mapi(function(x,key) return 'self.'..x..' = v' end):concat(' ')?>
 			else
 				local args = {v, v2, ...}
-				assert(#args == <?=dim?>)
+				assert(#args >= <?=dim?>)
 				<?=fields:mapi(function(x,key) return 'self.'..x..' = args['..key..']' end):concat(' ')?>
 			end
 		end
