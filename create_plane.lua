@@ -98,7 +98,7 @@ local cl = {
 
 -- from here on our, plane-specific functions:
 
-	fromDirAndPt = function(self, dir, pt)
+	fromDirPt = function(self, dir, pt)
 		-- normalize?
 		self.n = dir:normalize()
 		self:setPt(pt)
@@ -116,11 +116,36 @@ local cl = {
 	-- -negDist = -negDist
 	-- true
 	getPt = function(self)
-		return -self.n * self.negDist / self.n:dot(self.n)
+		return -self.n * self.negDist / self.n:lenSq()
 	end,
 
 	dist = function(self, pt)
 		return self.n:dot(pt) + self.negDist
+	end,
+
+	-- project point x onto plane:
+	-- x' = x - c n
+	-- s.t. x' . n + negDist = 0
+	-- (x - c n) . n + negDist = 0
+	-- x . n - c n . n + negDist = 0
+	-- c = (negDist + x.n) /  (n.n)
+	-- c = dist(x) /  (n.n)
+	-- x' = x - n * dist(x) / n.n
+	-- x' = x - n * (x.n + negDist) / n.n
+	-- x' = x - n * x.n / n.n - n * negDist / n.n
+	-- x' = project(n,x) - n * negDist / n.n
+	project = function(self, x)
+		return x - self.n * (self:dist(x) / self.n:lenSq())
+	end,
+
+	-- project a vector v onto plane
+	-- v' . n = 0
+	-- v' = v - n (v . n) / (n . n)
+	-- v . n - n . n (v . n) / (n.n) = 0
+	-- 0 = 0
+	-- but this is a vec3 function, not a plane3 function
+	projectVec = function(self, v)
+		return self.n:project(v)
 	end,
 
 	-- pt and dir are the ray's point and direction

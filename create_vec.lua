@@ -209,8 +209,14 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 		return dist
 	end,
 
+	-- TODO call this 'product'
 	volume = function(v)
 		return <?=fields:mapi(function(x) return 'v.'..x end):concat(' * ')?>
+	end,
+
+	-- normal first so the function arguments can be 1:1 with plane project
+	project = function(n, v)
+		return v - n * (n:dot(v) / n:dot(n))
 	end,
 }
 
