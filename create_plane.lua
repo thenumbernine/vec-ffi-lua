@@ -102,14 +102,34 @@ local cl = {
 		-- normalize?
 		self.n = dir:normalize()
 		self:setPt(pt)
+		return self
 	end,
 
 	setPt = function(self, pt)
 		self.negDist = -pt:dot(self.n)
 	end,
 
+	-- get a point on the plane closest to origin
+	-- plane eqn: v . n + negDist = 0
+	-- let v = -n * negDist / (n . n)
+	-- (-n * negDist / (n . n)) . n = -negDist
+	-- -negDist = -negDist
+	-- true
+	getPt = function(self)
+		return -self.n * self.negDist / self.n:dot(self.n)
+	end,
+
 	dist = function(self, pt)
 		return self.n:dot(pt) + self.negDist
+	end,
+
+	-- pt and dir are the ray's point and direction
+	intersectRay = function(self, pt, dir)
+		-- ((rayPos + s * rayDir) - planePt) dot planeNormal = 0
+		-- rayPos dot planeNormal + s * rayDir dot planeNormal - planePt dot planeNormal = 0
+		-- s = ((planePt - rayPos) dot planeNormal) / (rayDir dot planeNormal)
+		local s = (self:getPt() - pt):dot(self.n) / self.n:dot(dir)
+		return pt + dir * s, s
 	end,
 }
 
