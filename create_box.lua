@@ -1,24 +1,34 @@
 local table = require 'ext.table'
 local template = require 'template'
 local showcode = require 'template.showcode'
-local suffix = require 'vec-ffi.suffix'
+local suffixes = require 'vec-ffi.suffix'
 
 return function(vectype)
 	assert(vectype)
 	
 	local dim = vectype.dim 
-	local suffix = suffix[vectype.elemType]
+	local ctype = vectype.elemType
+	local suffix = suffixes[ctype]
+
+	local args = {
+		dim = dim,
+		suffix = suffix,
+		ctype = ctype,
+		vectype = vectype,
+		-- TODO remove the _t ?
+		boxtype = 'box'..dim..suffix..'_t',
+		fields = table{'min', 'max'},
+	}
 
 	local code = template([=[
--- class to match 'vectype'
-local vectorClass = ...
-local ffi = require 'ffi'
 <?
 local range = require 'ext.range'
-local dim = vectype.dim
 ?>
-
-local dim = <?=dim?>
+-- class to match 'vectype'
+local args = ...
+local vectype = args.vectype
+local dim = args.dim
+local ffi = require 'ffi'
 
 local typeCode = [[
 typedef union <?=boxtype?> {
@@ -106,14 +116,14 @@ local cl = {
 	-- static initializer for empty box
 	empty = function()
 		return metatype(
-			vectorClass(<?=range(dim):mapi(function() return 'math.huge' end):concat', '?>),
-			vectorClass(<?=range(dim):mapi(function() return '-math.huge' end):concat', '?>)
+			vectype(<?=range(dim):mapi(function() return 'math.huge' end):concat', '?>),
+			vectype(<?=range(dim):mapi(function() return '-math.huge' end):concat', '?>)
 		)
 	end,
 
 	-- get the i'th corner, i in [0, 2^dim)
 	corner = function(self, i)
-		local v = vectorClass()
+		local v = vectype()
 		for j=0,dim-1 do
 			local side = bit.band(bit.rshift(i, j), 1) == 1
 			v.s[j] = side and self.min.s[j] or self.max.s[j]
@@ -125,15 +135,10 @@ local cl = {
 cl.__index = cl
 metatype = ffi.metatype('<?=boxtype?>', cl)
 return metatype
-	]=], {
-		-- TODO remove the _t ?
-		vectype = vectype,
-		boxtype = 'box'..dim..suffix..'_t',
-		fields = table{'min', 'max'},
-	})
+	]=], args)
 	local func, msg = load(code)
 	if not func then
 		error('\n'..showcode(code)..'\n'..msg)
 	end
-	return func(vectype)
+	return func(args)
 end

@@ -24,6 +24,10 @@ return function(args)
 	local code = template([=[
 local ffi = require 'ffi'
 local math = require 'ext.math'
+local args = ...
+local dim = args.dim
+local vectype = args.vectype
+local ctype = args.ctype
 
 local typeCode = [[
 typedef union <?=vectype?> {
@@ -48,9 +52,9 @@ local metatype
 
 local cl = {
 	sizeof = ffi.sizeof('<?=vectype?>'),
-	type = '<?=vectype?>',	-- TODO maybe 'name' is better?
-	elemType = '<?=ctype?>',
-	dim = <?=dim?>,
+	type = vectype,	-- TODO maybe 'name' is better?
+	elemType = ctype,
+	dim = dim,
 
 	typeCode = typeCode,
 
@@ -223,5 +227,5 @@ return metatype
 	if not func then
 		error('\n'..showcode(code)..'\n'..msg)
 	end
-	return func()
+	return func(args)
 end
