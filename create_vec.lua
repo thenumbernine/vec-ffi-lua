@@ -191,6 +191,18 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 		return v / v:length()
 	end,
 
+	unitOrZeroEpsilon = 1e-7,
+
+	-- useful for surface normal / quaternion angle/axis
+	unitOrZero = function(v, eps)
+		eps = eps or metatype.unitOrZeroEpsilon
+		local vlen = v:norm()
+		if vlen <= eps or not math.isfinite(vlen) then
+			return metatype(), vlen
+		end
+		return v / vlen, vlen
+	end,
+
 	lInfLength = function(v)	-- L-infinite length
 		local fp = v.s
 		local dist = math.abs(fp[0])

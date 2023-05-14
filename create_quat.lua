@@ -176,10 +176,13 @@ function cl:conjugate(res)
 	return res
 end
 
-function cl:normalize(res)
+cl.normalizeEpsilon = 1e-7
+
+function cl:normalize(res, eps)
+	eps = eps or cl.normalizeEpsilon
 	res = res or metatype()
-	local lenSq = self:lenSq()
-	if math.abs(lenSq) < 1e-20 then
+	local lenSq = self:normSq()
+	if lenSq < eps*eps then
 		res.x = 0
 		res.y = 0
 		res.z = 0
