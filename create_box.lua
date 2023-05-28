@@ -5,8 +5,8 @@ local suffixes = require 'vec-ffi.suffix'
 
 return function(vectype)
 	assert(vectype)
-	
-	local dim = vectype.dim 
+
+	local dim = vectype.dim
 	local ctype = vectype.elemType
 	local suffix = suffixes[ctype]
 
@@ -63,7 +63,7 @@ local cl = {
 	unpack = function(self)
 		return <?=fields:mapi(function(x) return 'self.'..x end):concat', '?>
 	end,
-	
+
 	-- TODO between this and ffi.cpp.vector, one is toTable the other is totable ... which to use?
 	-- duplicated from vec-ffi.create_vec
 	toTable = function(self)
@@ -106,10 +106,25 @@ local cl = {
 
 	-- 'v' is a vec3, stretches 'self' to contain 'v'
 	-- TODO same could be done with a box, stretch self's min by b's min, stretch self's max by b's max
-	stretch = function(self, v)
+	stretch = function(self, ...)
+		local vmin, vmax
+		local n = select('#', ...)
+		if n == 0 then
+			error("box.stretch needs an arg")
+		elseif n == 1 then
+			local varg = ...
+			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
+			if (type(varg) == 'ctype' or type(varg) == 'table') and varg.min and varg.max then
+				vmin, vmax = varg.min, varg.max
+			else
+				vmin, vmax = varg, varg
+			end
+		else
+			vmin, vmax = ...
+		end
 		for i=0,dim-1 do
-			self.min.s[i] = math.min(self.min.s[i], v.s[i])
-			self.max.s[i] = math.max(self.max.s[i], v.s[i])
+			self.min.s[i] = math.min(self.min.s[i], vmin.s[i])
+			self.max.s[i] = math.max(self.max.s[i], vmax.s[i])
 		end
 	end,
 
@@ -129,6 +144,93 @@ local cl = {
 			v.s[j] = side and self.min.s[j] or self.max.s[j]
 		end
 		return v
+	end,
+
+	contains = function(self, ...)
+		local vmin, vmax
+		local n = select('#', ...)
+		if n == 0 then
+			error("box.stretch needs an arg")
+		elseif n == 1 then
+			local varg = ...
+			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
+			if (type(varg) == 'ctype' or type(varg) == 'table') and varg.min and varg.max then
+				vmin, vmax = varg.min, varg.max
+			else
+				vmin, vmax = varg, varg
+			end
+		else
+			vmin, vmax = ...
+		end
+		for i=0,dim-1 do
+			if vmin.s[i] < self.min.s[i] or vmax.s[i] > self.max.s[i] then return false end
+		end
+		return true
+	end,
+
+	touches = function(self, ...)
+		local vmin, vmax
+		local n = select('#', ...)
+		if n == 0 then
+			error("box.stretch needs an arg")
+		elseif n == 1 then
+			local varg = ...
+			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
+			if (type(varg) == 'ctype' or type(varg) == 'table') and varg.min and varg.max then
+				vmin, vmax = varg.min, varg.max
+			else
+				vmin, vmax = varg, varg
+			end
+		else
+			vmin, vmax = ...
+		end
+		for i=0,dim-1 do
+			if vmin.s[i] <= self.max.s[i] and vmax.s[i] >= self.min.s[i] then return true end
+		end
+		return false
+	end,
+
+	-- returns the coefficient of intersection of line segment from a to b
+	intersectLineSeg = function(self, a, b)
+--print('self', self)
+		if self:contains(a) then return 0 end
+--print('a', a)
+--print('b', b)
+		local d = b - a
+--print('d', d)
+		local bestS
+		for i=0,dim-1 do
+--print('test side', i)
+			-- a_i + s * (b_i - a_i) = min or max = m
+			-- s = (m - a_i) / (b_i - a_i)
+			local s
+			if d.s[i] > 0 then	-- test for collision with min
+--print('di', d.s[i], 'ai', a.s[i], 'min', self.min.s[i])
+				s = (self.min.s[i] - a.s[i]) / d.s[i]
+			elseif d.s[i] < 0 then -- test for collision with max
+--print('di', d.s[i], 'ai', a.s[i], 'max', self.max.s[i])
+				s = (self.max.s[i] - a.s[i]) / d.s[i]
+			end
+--print('s',s)
+			if s and s >= 0 and s <= 1 then
+				local p = a + d * s
+--print('p', p)
+				local oob
+				for j=0,dim-2 do
+					local k = (i+j+1)%dim
+					if p.s[k] < self.min.s[k] or p.s[k] > self.max.s[k] then
+						oob = true
+						break
+					end
+				end
+				if not oob then
+					if not bestS or s < bestS then
+						bestS = s
+					end
+				end
+			end
+		end
+		return bestS
 	end,
 }
 

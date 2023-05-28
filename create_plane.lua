@@ -98,6 +98,11 @@ local cl = {
 
 -- from here on our, plane-specific functions:
 
+	-- (x - pt) dot dir > 0
+	-- x dot dir - pt dot dir > 0
+	-- let p_i = dir_i
+	-- and p_w = -pt dot dir
+	-- x_i p_i + p_w > 0
 	fromDirPt = function(self, dir, pt)
 		-- normalize?
 		self.n = dir:normalize()
@@ -155,6 +160,24 @@ local cl = {
 		-- s = ((planePt - rayPos) dot planeNormal) / (rayDir dot planeNormal)
 		local s = (self:getPt() - pt):dot(self.n) / self.n:dot(dir)
 		return pt + dir * s, s
+	end,
+
+	-- transform a plane by a 4x4 matrix
+	-- 3D plane test:
+	-- p_i v_i + p_w > 0
+	-- 3D transformed point / plane test:
+	-- p_i M3_ij v_j + p_w > 0
+	-- p'_i v_i + p_w > 0
+	-- for p'_j = p_i M3_ij
+	-- 3x4 transformed point / plane test:
+	-- for M4_ij (v_j, 1) = M3_ij v_j + M4_i
+	-- p_i (M3_ij v_j + M4_i) + p_w > 0
+	-- (p_i M3_ij) v_j + (p_i M4_i + p_w) > 0
+	-- so p'_j = p_i M3_ij
+	-- and p'_w = p_i M4_i + p_w
+	transform = function(self, m3x3, m4)
+		self.negDist = self.negDist + self.n:dot(m4)
+		self.n = self.n * m3x3
 	end,
 }
 
