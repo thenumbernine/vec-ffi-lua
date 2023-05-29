@@ -74,6 +74,10 @@ local cl = {
 		return {self.v:unpack()}
 	end,
 
+	__unm = function(self)
+		return metatype(-self.n, -self.negDist)
+	end,
+
 	__eq = function(a,b)
 		if not (type(a) == 'table' or type(a) == 'cdata')
 		or not (type(b) == 'table' or type(b) == 'cdata')
@@ -126,6 +130,10 @@ local cl = {
 
 	dist = function(self, pt)
 		return self.n:dot(pt) + self.negDist
+	end,
+
+	test = function(self, pt)
+		return self:dist(pt) >= 0
 	end,
 
 	-- project point x onto plane:
