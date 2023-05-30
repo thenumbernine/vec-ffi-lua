@@ -74,10 +74,6 @@ local cl = {
 		return {self.v:unpack()}
 	end,
 
-	__unm = function(self)
-		return metatype(-self.n, -self.negDist)
-	end,
-
 	__eq = function(a,b)
 		if not (type(a) == 'table' or type(a) == 'cdata')
 		or not (type(b) == 'table' or type(b) == 'cdata')
@@ -101,6 +97,10 @@ local cl = {
 
 
 -- from here on our, plane-specific functions:
+
+	__unm = function(self)
+		return metatype(-self.n, -self.negDist)
+	end,
 
 	-- (x - pt) dot dir > 0
 	-- x dot dir - pt dot dir > 0

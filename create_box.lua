@@ -94,6 +94,15 @@ local cl = {
 
 -- from here on our, box-specific functions:
 
+	__mul = function(a,b)
+		if metatype:isa(a) and type(b) == 'number' then
+			return metatype(a.min * b, a.max * b)
+		elseif type(a) == 'number' and metatype:isa(b) then
+			return metatype(a * b.min, a * b.max)
+		else
+			error"don't know how to multiply bbox with this"
+		end
+	end,
 
 	-- 'b' is a 'box3', clamps 'self' to be within 'b'
 	clamp = function(self, b)
