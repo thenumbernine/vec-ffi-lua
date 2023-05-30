@@ -138,6 +138,11 @@ end)
 for _,info in ipairs(opinfos) do
 ?>	__<?=info.name?> = function(a,b)
 		if type(b) == 'cdata' then
+			if type(a) == 'number' then
+				return metatype(<?=fields:mapi(function(x)
+					return 'a'..info.symbol..'b.'..x
+				end):concat(', ')?>)
+			end
 			return metatype(<?=fields:mapi(function(x)
 				return 'a.'..x..info.symbol..'b.'..x
 			end):concat(', ')?>)
