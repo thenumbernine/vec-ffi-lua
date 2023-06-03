@@ -104,6 +104,18 @@ local cl = {
 		end
 	end,
 
+	-- static initializer for empty box
+	empty = function()
+		return metatype(
+			vectype(<?=range(dim):mapi(function() return 'math.huge' end):concat', '?>),
+			vectype(<?=range(dim):mapi(function() return '-math.huge' end):concat', '?>)
+		)
+	end,
+
+	size = function(self)
+		return self.max - self.min
+	end,
+
 	-- 'b' is a 'box3', clamps 'self' to be within 'b'
 	clamp = function(self, b)
 		for i=0,dim-1 do
@@ -135,14 +147,6 @@ local cl = {
 			self.min.s[i] = math.min(self.min.s[i], vmin.s[i])
 			self.max.s[i] = math.max(self.max.s[i], vmax.s[i])
 		end
-	end,
-
-	-- static initializer for empty box
-	empty = function()
-		return metatype(
-			vectype(<?=range(dim):mapi(function() return 'math.huge' end):concat', '?>),
-			vectype(<?=range(dim):mapi(function() return '-math.huge' end):concat', '?>)
-		)
 	end,
 
 	-- get the i'th corner, i in [0, 2^dim)
