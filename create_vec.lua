@@ -240,7 +240,13 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 -- allow the caller to override/add any functions
 ]=]..args.classCode..[=[
 
+-- [[ throws errors if the C field isn't present
 cl.__index = cl
+--]]
+--[[ doesn't throw errors if the C field isn't present.  probably runs slower.
+-- but this doesn't help by field detect in the case of cdata unless every single cdef metamethod __index is set to a function instead of a table...
+cl.__index = function(t,k) return cl[k] end
+--]]
 
 metatype = ffi.metatype('<?=vectype?>', cl)
 

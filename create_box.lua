@@ -135,7 +135,8 @@ local cl = {
 		elseif n == 1 then
 			local varg = ...
 			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
-			if (type(varg) == 'ctype' or type(varg) == 'table') and varg.min and varg.max then
+			-- wish luajit behavior had stuck to Lua convention of returning nil (fast) over throwing errors (slow) for simple things like accessing fields or detecting types ...
+			if type(varg) == 'cdata' and tostring(ffi.typeof(varg)):sub(1,15) == 'ctype<union box' then
 				vmin, vmax = varg.min, varg.max
 			else
 				vmin, vmax = varg, varg
@@ -247,7 +248,13 @@ local cl = {
 	end,
 }
 
+-- [[ throws errors if the C field isn't present
 cl.__index = cl
+--]]
+--[[ doesn't throw errors if the C field isn't present.  probably runs slower.
+cl.__index = function(t,k) return cl[k] end
+--]]
+
 metatype = ffi.metatype('<?=boxtype?>', cl)
 return metatype
 	]=], args)
