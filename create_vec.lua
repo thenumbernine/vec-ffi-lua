@@ -163,8 +163,8 @@ for _,info in ipairs(opinfos) do
 
 	map = function(v, m)
 		return metatype(<?=
-			fields:mapi(function(x)
-				return 'm(v.'..x..')'
+			fields:mapi(function(x,i)
+				return 'm(v.'..x..', '..(i-1)..')'
 			end):concat', '
 		?>)
 	end,
