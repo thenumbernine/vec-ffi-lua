@@ -74,6 +74,13 @@ local cl = {
 		return {self:unpack()}
 	end,
 
+	clone = function(self)
+		return <?=vectype?>(self:unpack())
+	end,
+
+	-- TODO no more :set on cdata or table, just on raw values
+	-- use separate methods for the others
+	-- prevent some if conditions
 	set = function(self, v, v2, ...)
 		if type(v) == 'cdata' then
 			<?=fields:mapi(function(x) return 'self.'..x..' = v.'..x end):concat(' ')?>
