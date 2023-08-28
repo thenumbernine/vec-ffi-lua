@@ -68,14 +68,14 @@ local cl = {
 	unpack = function(self)
 		return <?=fields:mapi(function(x) return 'self.'..x end):concat(', ')?>
 	end,
-	
+
 	-- TODO between this and ffi.cpp.vector, one is toTable the other is totable ... which to use?
 	toTable = function(self)
 		return {self:unpack()}
 	end,
 
 	clone = function(self)
-		return <?=vectype?>(self:unpack())
+		return metatype(self:unpack())
 	end,
 
 	-- TODO no more :set on cdata or table, just on raw values
