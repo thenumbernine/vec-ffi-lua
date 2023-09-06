@@ -60,8 +60,9 @@ local cl = {
 	end,
 
 	-- duplicated from vec-ffi.create_vec
+	-- TODO how to unpack box?  as two tables, or flattened?
 	unpack = function(self)
-		return <?=fields:mapi(function(x) return 'self.'..x end):concat', '?>
+		return <?=fields:mapi(function(x) return 'self.'..x..':toTable()' end):concat', '?>
 	end,
 
 	-- TODO between this and ffi.cpp.vector, one is toTable the other is totable ... which to use?
