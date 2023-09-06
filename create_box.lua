@@ -204,9 +204,9 @@ local cl = {
 			vmin, vmax = ...
 		end
 		for i=0,dim-1 do
-			if vmin.s[i] <= self.max.s[i] and vmax.s[i] >= self.min.s[i] then return true end
+			if vmin.s[i] > self.max.s[i] or vmax.s[i] < self.min.s[i] then return false end
 		end
-		return false
+		return true
 	end,
 
 	-- returns the coefficient of intersection of line segment from a to b
