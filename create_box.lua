@@ -168,7 +168,12 @@ local cl = {
 		elseif n == 1 then
 			local varg = ...
 			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
-			if (type(varg) == 'ctype' or type(varg) == 'table') and varg.min and varg.max then
+			if (type(varg) == 'cdata' or type(varg) == 'table')
+			-- NOTICE if varg is cdata then the next test will error upon failure
+			-- because luajit decided to error on invalid index instead of lua's just-return-nil behavior
+			and varg.min
+			and varg.max
+			then
 				vmin, vmax = varg.min, varg.max
 			else
 				vmin, vmax = varg, varg
@@ -190,7 +195,7 @@ local cl = {
 		elseif n == 1 then
 			local varg = ...
 			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
-			if (type(varg) == 'ctype' or type(varg) == 'table') and varg.min and varg.max then
+			if (type(varg) == 'cdata' or type(varg) == 'table') and varg.min and varg.max then
 				vmin, vmax = varg.min, varg.max
 			else
 				vmin, vmax = varg, varg
