@@ -1,3 +1,4 @@
+-- TODO merge this with struct-lua and hydro-cl's struct
 local table = require 'ext.table'
 local template = require 'template'
 local showcode = require 'template.showcode'
