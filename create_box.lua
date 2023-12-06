@@ -30,7 +30,7 @@ local vectype = args.vectype
 local dim = args.dim
 local ffi = require 'ffi'
 
-local typeCode = [[
+local code = [[
 typedef union <?=boxtype?> {
 	struct {
 		<?=vectype.type?> <?=fields:concat', '?>;
@@ -39,17 +39,17 @@ typedef union <?=boxtype?> {
 } <?=boxtype?>;
 ]]
 
-ffi.cdef(typeCode)
+ffi.cdef(code)
 assert(ffi.sizeof'<?=boxtype?>' == 2 * ffi.sizeof'<?=vectype.type?>')
 
 local metatype
 local cl = {
 	sizeof = ffi.sizeof('<?=boxtype?>'),
-	type = '<?=boxtype?>',	-- TODO 'name' ?
+	name = '<?=boxtype?>',
 	elemType = '<?=vectype.type?>',
 	dim = dim,
 
-	typeCode = typeCode,
+	code = code,
 
 	-- matches behavior ext.class
 	-- but ofc no inheritence

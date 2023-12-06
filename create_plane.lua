@@ -29,7 +29,7 @@ local dim = vecNType.dim
 
 local dim = <?=dim?>
 
-local typeCode = [[
+local code = [[
 typedef union <?=planeType?> {
 	struct {
 		<?=vecNType.type?> n;
@@ -40,20 +40,20 @@ typedef union <?=planeType?> {
 } <?=planeType?>;
 ]]
 
-ffi.cdef(typeCode)
+ffi.cdef(code)
 assert(ffi.sizeof'<?=planeType?>' == ffi.sizeof'<?=vecNPlusOneType.type?>')
 
 local metatype
 local cl = {
 	sizeof = ffi.sizeof('<?=planeType?>'),
-	type = '<?=planeType?>',	-- TODO 'name' ?
+	name = '<?=planeType?>',
 	elemType = '<?=ctype?>',
 
 	-- this is the dimension the plane resides in
 	-- so the plane is dim+1 elements
 	dim = dim,
 
-	typeCode = typeCode,
+	code = code,
 
 	-- matches behavior ext.class
 	-- but ofc no inheritence
