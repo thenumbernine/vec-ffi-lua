@@ -33,7 +33,7 @@ return function(args)
 	args.vectype = args.vectype or 'vec'..args.dim..args.suffix..'_t'
 	args.fields = (args.fields or table{'x', 'y', 'z', 'w'}):sub(1, args.dim)
 
-			local code = template([=[
+	local code = template([=[
 local ffi = require 'ffi'
 local math = require 'ext.math'
 local args = ...
@@ -200,7 +200,7 @@ local function modifyMetatable(cl)
 
 		-- useful for surface normal / quaternion angle/axis
 		unitOrZero = function(v, eps)
-			eps = eps or new.unitOrZeroEpsilon
+			eps = eps or metatype.unitOrZeroEpsilon
 			local vlen = v:norm()
 			if vlen <= eps or not math.isfinite(vlen) then
 				return metatype(), vlen
@@ -249,7 +249,7 @@ local function modifyMetatable(cl)
 
 end
 
--- do this declartion inside the templated code 
+-- do this declartion inside the templated code
 -- so that we can also use the same scope for storing `metatype`
 -- and also reference that within the subclass-provided `classCode`
 local range = require 'ext.range'
