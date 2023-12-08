@@ -40,26 +40,6 @@ local function modifyMetatable(cl)
 
 	for k,v in pairs{
 	
-		-- duplicated from vec-ffi.create_vec
-		-- TODO how to unpack box?  as two tables, or flattened?
-		unpack = function(self)
-			return <?=fields:mapi(function(x) return 'self.'..x..':toTable()' end):concat', '?>
-		end,
-
-		-- TODO between this and ffi.cpp.vector, one is toTable the other is totable ... which to use?
-		-- duplicated from vec-ffi.create_vec
-		toTable = function(self)
-			return {self:unpack()}
-		end,
-
-		__tostring = function(v)
-			return '(' .. <?=
-				fields:mapi(function(x)
-					return 'tostring(v.'..x..')'
-				end):concat(' .. ", " .. ')
-			?> .. ')'
-		end,
-
 	-- from here on our, box-specific functions:
 
 		__mul = function(a,b)

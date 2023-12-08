@@ -38,25 +38,7 @@ local function modifyMetatable(cl)
 	cl.sizeof = ffi.sizeof('<?=planeType?>')
 
 	for k,v in pairs{
-		-- duplicated from vec-ffi.create_vec
-		unpack = function(self)
-			return self.v:unpack()
-		end,
-
-		-- TODO between this and ffi.cpp.vector, one is toTable the other is totable ... which to use?
-		-- duplicated from vec-ffi.create_vec
-		toTable = function(self)
-			return {self.v:unpack()}
-		end,
-
-		__tostring = function(self)
-			return '(' .. <?=
-				fields:mapi(function(x)
-					return 'tostring(self.'..x..')'
-				end):concat(' .. ", " .. ')
-			?> .. ')'
-		end,
-
+	
 	-- from here on our, plane-specific functions:
 
 		__unm = function(self)

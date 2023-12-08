@@ -54,22 +54,6 @@ local function modifyMetatable(cl)
 	cl.sizeof = ffi.sizeof(cl.name)
 
 	for k,v in pairs{
-
-		-- TODO move this to struct?
-		unpack = function(self)
-			return <?=fields:mapi(function(x) return 'self.'..x end):concat(', ')?>
-		end,
-
-		-- TODO between this and ffi.cpp.vector, one is toTable the other is totable ... which to use?
-		toTable = function(self)
-			return {self:unpack()}
-		end,
-
-		-- TODO just use ffi.new ?  but that requires a typename still ...
-		clone = function(self)
-			return metatype(self:unpack())
-		end,
-
 		-- TODO no more :set on cdata or table, just on raw values
 		-- use separate methods for the others
 		-- prevent some if conditions
@@ -90,13 +74,6 @@ local function modifyMetatable(cl)
 			return self
 		end,
 
-		__tostring = function(v)
-			return '(' .. <?=
-				fields:mapi(function(x)
-					return 'tostring(v.'..x..')'
-				end):concat(' .. ", " .. ')
-			?> .. ')'
-		end,
 
 	-- from here on our, vec-specific functions:
 
