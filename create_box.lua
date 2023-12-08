@@ -38,169 +38,164 @@ local function modifyMetatable(cl)
 	cl.dim = dim
 	cl.sizeof = ffi.sizeof(cl.name)
 
-	for k,v in pairs{
-	
 	-- from here on our, box-specific functions:
 
-		__mul = function(a,b)
-			if metatype:isa(a) and type(b) == 'number' then
-				return metatype(a.min * b, a.max * b)
-			elseif type(a) == 'number' and metatype:isa(b) then
-				return metatype(a * b.min, a * b.max)
+	cl.__mul = function(a,b)
+		if metatype:isa(a) and type(b) == 'number' then
+			return metatype(a.min * b, a.max * b)
+		elseif type(a) == 'number' and metatype:isa(b) then
+			return metatype(a * b.min, a * b.max)
+		else
+			error"don't know how to multiply bbox with this"
+		end
+	end
+
+	-- static initializer for empty box
+	cl.empty = function()
+		return metatype(
+			vectype(<?=range(dim):mapi(function() return 'math.huge' end):concat', '?>),
+			vectype(<?=range(dim):mapi(function() return '-math.huge' end):concat', '?>)
+		)
+	end
+
+	cl.size = function(self)
+		return self.max - self.min
+	end
+
+	-- 'b' is a 'box3', clamps 'self' to be within 'b'
+	cl.clamp = function(self, b)
+		for i=0,dim-1 do
+			if self.min.s[i] < b.min.s[i] then self.min.s[i] = b.min.s[i] end
+			if self.max.s[i] > b.max.s[i] then self.max.s[i] = b.max.s[i] end
+		end
+		return self
+	end
+
+	-- 'v' is a vec3, stretches 'self' to contain 'v'
+	-- TODO same could be done with a box, stretch self's min by b's min, stretch self's max by b's max
+	cl.stretch = function(self, ...)
+		local vmin, vmax
+		local n = select('#', ...)
+		if n == 0 then
+			error("box.stretch needs an arg")
+		elseif n == 1 then
+			local varg = ...
+			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
+			-- wish luajit behavior had stuck to Lua convention of returning nil (fast) over throwing errors (slow) for simple things like accessing fields or detecting types ...
+			if type(varg) == 'cdata' and tostring(ffi.typeof(varg)):sub(1,15) == 'ctype<union box' then
+				vmin, vmax = varg.min, varg.max
 			else
-				error"don't know how to multiply bbox with this"
+				vmin, vmax = varg, varg
 			end
-		end,
+		else
+			vmin, vmax = ...
+		end
+		for i=0,dim-1 do
+			self.min.s[i] = math.min(self.min.s[i], vmin.s[i])
+			self.max.s[i] = math.max(self.max.s[i], vmax.s[i])
+		end
+	end
 
-		-- static initializer for empty box
-		empty = function()
-			return metatype(
-				vectype(<?=range(dim):mapi(function() return 'math.huge' end):concat', '?>),
-				vectype(<?=range(dim):mapi(function() return '-math.huge' end):concat', '?>)
-			)
-		end,
+	-- get the i'th corner, i in [0, 2^dim)
+	cl.corner = function(self, i)
+		local v = vectype()
+		for j=0,dim-1 do
+			local side = bit.band(bit.rshift(i, j), 1) == 1
+			v.s[j] = side and self.min.s[j] or self.max.s[j]
+		end
+		return v
+	end
 
-		size = function(self)
-			return self.max - self.min
-		end,
-
-		-- 'b' is a 'box3', clamps 'self' to be within 'b'
-		clamp = function(self, b)
-			for i=0,dim-1 do
-				if self.min.s[i] < b.min.s[i] then self.min.s[i] = b.min.s[i] end
-				if self.max.s[i] > b.max.s[i] then self.max.s[i] = b.max.s[i] end
-			end
-			return self
-		end,
-
-		-- 'v' is a vec3, stretches 'self' to contain 'v'
-		-- TODO same could be done with a box, stretch self's min by b's min, stretch self's max by b's max
-		stretch = function(self, ...)
-			local vmin, vmax
-			local n = select('#', ...)
-			if n == 0 then
-				error("box.stretch needs an arg")
-			elseif n == 1 then
-				local varg = ...
-				-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
-				-- wish luajit behavior had stuck to Lua convention of returning nil (fast) over throwing errors (slow) for simple things like accessing fields or detecting types ...
-				if type(varg) == 'cdata' and tostring(ffi.typeof(varg)):sub(1,15) == 'ctype<union box' then
-					vmin, vmax = varg.min, varg.max
-				else
-					vmin, vmax = varg, varg
-				end
+	cl.contains = function(self, ...)
+		local vmin, vmax
+		local n = select('#', ...)
+		if n == 0 then
+			error("box.stretch needs an arg")
+		elseif n == 1 then
+			local varg = ...
+			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
+			if (type(varg) == 'cdata' or type(varg) == 'table')
+			-- NOTICE if varg is cdata then the next test will error upon failure
+			-- because luajit decided to error on invalid index instead of lua's just-return-nil behavior
+			and varg.min
+			and varg.max
+			then
+				vmin, vmax = varg.min, varg.max
 			else
-				vmin, vmax = ...
+				vmin, vmax = varg, varg
 			end
-			for i=0,dim-1 do
-				self.min.s[i] = math.min(self.min.s[i], vmin.s[i])
-				self.max.s[i] = math.max(self.max.s[i], vmax.s[i])
-			end
-		end,
+		else
+			vmin, vmax = ...
+		end
+		for i=0,dim-1 do
+			if vmin.s[i] < self.min.s[i] or vmax.s[i] > self.max.s[i] then return false end
+		end
+		return true
+	end
 
-		-- get the i'th corner, i in [0, 2^dim)
-		corner = function(self, i)
-			local v = vectype()
-			for j=0,dim-1 do
-				local side = bit.band(bit.rshift(i, j), 1) == 1
-				v.s[j] = side and self.min.s[j] or self.max.s[j]
-			end
-			return v
-		end,
-
-		contains = function(self, ...)
-			local vmin, vmax
-			local n = select('#', ...)
-			if n == 0 then
-				error("box.stretch needs an arg")
-			elseif n == 1 then
-				local varg = ...
-				-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
-				if (type(varg) == 'cdata' or type(varg) == 'table')
-				-- NOTICE if varg is cdata then the next test will error upon failure
-				-- because luajit decided to error on invalid index instead of lua's just-return-nil behavior
-				and varg.min
-				and varg.max
-				then
-					vmin, vmax = varg.min, varg.max
-				else
-					vmin, vmax = varg, varg
-				end
+	cl.touches = function(self, ...)
+		local vmin, vmax
+		local n = select('#', ...)
+		if n == 0 then
+			error("box.stretch needs an arg")
+		elseif n == 1 then
+			local varg = ...
+			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
+			if (type(varg) == 'cdata' or type(varg) == 'table') and varg.min and varg.max then
+				vmin, vmax = varg.min, varg.max
 			else
-				vmin, vmax = ...
+				vmin, vmax = varg, varg
 			end
-			for i=0,dim-1 do
-				if vmin.s[i] < self.min.s[i] or vmax.s[i] > self.max.s[i] then return false end
-			end
-			return true
-		end,
+		else
+			vmin, vmax = ...
+		end
+		for i=0,dim-1 do
+			if vmin.s[i] > self.max.s[i] or vmax.s[i] < self.min.s[i] then return false end
+		end
+		return true
+	end
 
-		touches = function(self, ...)
-			local vmin, vmax
-			local n = select('#', ...)
-			if n == 0 then
-				error("box.stretch needs an arg")
-			elseif n == 1 then
-				local varg = ...
-				-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
-				if (type(varg) == 'cdata' or type(varg) == 'table') and varg.min and varg.max then
-					vmin, vmax = varg.min, varg.max
-				else
-					vmin, vmax = varg, varg
-				end
-			else
-				vmin, vmax = ...
+	-- returns the coefficient of intersection of line segment from a to b
+	cl.intersectLineSeg = function(self, a, b)
+--print('self', self)
+		if self:contains(a) then return 0 end
+--print('a', a)
+--print('b', b)
+		local d = b - a
+--print('d', d)
+		local bestS
+		for i=0,dim-1 do
+--print('test side', i)
+			-- a_i + s * (b_i - a_i) = min or max = m
+			-- s = (m - a_i) / (b_i - a_i)
+			local s
+			if d.s[i] > 0 then	-- test for collision with min
+--print('di', d.s[i], 'ai', a.s[i], 'min', self.min.s[i])
+				s = (self.min.s[i] - a.s[i]) / d.s[i]
+			elseif d.s[i] < 0 then -- test for collision with max
+--print('di', d.s[i], 'ai', a.s[i], 'max', self.max.s[i])
+				s = (self.max.s[i] - a.s[i]) / d.s[i]
 			end
-			for i=0,dim-1 do
-				if vmin.s[i] > self.max.s[i] or vmax.s[i] < self.min.s[i] then return false end
-			end
-			return true
-		end,
-
-		-- returns the coefficient of intersection of line segment from a to b
-		intersectLineSeg = function(self, a, b)
-	--print('self', self)
-			if self:contains(a) then return 0 end
-	--print('a', a)
-	--print('b', b)
-			local d = b - a
-	--print('d', d)
-			local bestS
-			for i=0,dim-1 do
-	--print('test side', i)
-				-- a_i + s * (b_i - a_i) = min or max = m
-				-- s = (m - a_i) / (b_i - a_i)
-				local s
-				if d.s[i] > 0 then	-- test for collision with min
-	--print('di', d.s[i], 'ai', a.s[i], 'min', self.min.s[i])
-					s = (self.min.s[i] - a.s[i]) / d.s[i]
-				elseif d.s[i] < 0 then -- test for collision with max
-	--print('di', d.s[i], 'ai', a.s[i], 'max', self.max.s[i])
-					s = (self.max.s[i] - a.s[i]) / d.s[i]
-				end
-	--print('s',s)
-				if s and s >= 0 and s <= 1 then
-					local p = a + d * s
-	--print('p', p)
-					local oob
-					for j=0,dim-2 do
-						local k = (i+j+1)%dim
-						if p.s[k] < self.min.s[k] or p.s[k] > self.max.s[k] then
-							oob = true
-							break
-						end
-					end
-					if not oob then
-						if not bestS or s < bestS then
-							bestS = s
-						end
+--print('s',s)
+			if s and s >= 0 and s <= 1 then
+				local p = a + d * s
+--print('p', p)
+				local oob
+				for j=0,dim-2 do
+					local k = (i+j+1)%dim
+					if p.s[k] < self.min.s[k] or p.s[k] > self.max.s[k] then
+						oob = true
+						break
 					end
 				end
+				if not oob then
+					if not bestS or s < bestS then
+						bestS = s
+					end
+				end
 			end
-			return bestS
-		end,
-	} do
-		cl[k] = v
+		end
+		return bestS
 	end
 end
 

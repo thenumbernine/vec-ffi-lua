@@ -53,26 +53,25 @@ local function modifyMetatable(cl)
 	-- or move this back to struct?
 	cl.sizeof = ffi.sizeof(cl.name)
 
-	for k,v in pairs{
-		-- TODO no more :set on cdata or table, just on raw values
-		-- use separate methods for the others
-		-- prevent some if conditions
-		set = function(self, v, v2, ...)
-			if type(v) == 'cdata' then
-				<?=fields:mapi(function(x) return 'self.'..x..' = v.'..x end):concat(' ')?>
-			elseif type(v) == 'table' then
-				<?=fields:mapi(function(x,key) return 'self.'..x..' = v['..key..']' end):concat(' ')?>
+	-- TODO no more :set on cdata or table, just on raw values
+	-- use separate methods for the others
+	-- prevent some if conditions
+	cl.set = function(self, v, v2, ...)
+		if type(v) == 'cdata' then
+			<?=fields:mapi(function(x) return 'self.'..x..' = v.'..x end):concat(' ')?>
+		elseif type(v) == 'table' then
+			<?=fields:mapi(function(x,key) return 'self.'..x..' = v['..key..']' end):concat(' ')?>
+		else
+			if v2 == nil then
+				<?=fields:mapi(function(x,key) return 'self.'..x..' = v' end):concat(' ')?>
 			else
-				if v2 == nil then
-					<?=fields:mapi(function(x,key) return 'self.'..x..' = v' end):concat(' ')?>
-				else
-					local args = {v, v2, ...}
-					assert(#args >= <?=dim?>)
-					<?=fields:mapi(function(x,key) return 'self.'..x..' = args['..key..']' end):concat(' ')?>
-				end
+				local args = {v, v2, ...}
+				assert(#args >= <?=dim?>)
+				<?=fields:mapi(function(x,key) return 'self.'..x..' = args['..key..']' end):concat(' ')?>
 			end
-			return self
-		end,
+		end
+		return self
+	end
 
 
 	-- from here on our, vec-specific functions:
@@ -98,109 +97,108 @@ local function modifyMetatable(cl)
 	-- TODO unary operators
 
 	for _,info in ipairs(opinfos) do
-	?>	__<?=info.name?> = function(a,b)
-			if type(b) == 'cdata' then
-				if type(a) == 'number' then
-					return metatype(<?=fields:mapi(function(x)
-						return 'a'..info.symbol..'b.'..x
-					end):concat(', ')?>)
-				end
+?>	cl.__<?=info.name?> = function(a,b)
+		if type(b) == 'cdata' then
+			if type(a) == 'number' then
 				return metatype(<?=fields:mapi(function(x)
-					return 'a.'..x..info.symbol..'b.'..x
+					return 'a'..info.symbol..'b.'..x
 				end):concat(', ')?>)
 			end
-			b = tonumber(b)
-			if b == nil then
-				error("can't handle "..tostring(b).." (type "..type(b)..")")
-			end
 			return metatype(<?=fields:mapi(function(x)
-				return 'a.'..x..info.symbol..'b'
+				return 'a.'..x..info.symbol..'b.'..x
 			end):concat(', ')?>)
-		end,
-	<? end
-	?>
-		__unm = function(v)
-			return v * -1
-		end,
-
-		map = function(v, m)
-			return metatype(<?=
-				fields:mapi(function(x,i)
-					return 'm(v.'..x..', '..(i-1)..')'
-				end):concat', '
-			?>)
-		end,
-
-		lenSq = function(a)
-			return a:dot(a)
-		end,
-		length = function(a)
-			return math.sqrt(a:lenSq())
-		end,
-
-		dot = function(a,b)
-			return <?=
-	fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
-	?>	end,
-
-		normalize = function(v)
-			return v / v:length()
-		end,
-
-		-- naming compat with Matlab/matrix
-		normSq = function(a)
-			return a:dot(a)
-		end,
-		norm = function(a)
-			return math.sqrt(a:lenSq())
-		end,
-		unit = function(v)
-			return v / v:length()
-		end,
-
-		unitOrZeroEpsilon = 1e-7,
-
-		-- useful for surface normal / quaternion angle/axis
-		unitOrZero = function(v, eps)
-			eps = eps or metatype.unitOrZeroEpsilon
-			local vlen = v:norm()
-			if vlen <= eps or not math.isfinite(vlen) then
-				return metatype(), vlen
-			end
-			return v / vlen, vlen
-		end,
-
-		lInfLength = function(v)	-- L-infinite length
-			local fp = v.s
-			local dist = math.abs(fp[0])
-			for i=1,<?=dim?>-1 do
-				dist = math.max(dist, math.abs(fp[i]))
-			end
-			return dist
-		end,
-
-		l1Length = function(v)	--L-1 length
-			local fp = v.s
-			local dist = math.abs(fp[0])
-			for i=1,<?=dim?>-1 do
-				dist = dist + math.abs(fp[i])
-			end
-			return dist
-		end,
-
-		-- TODO call this 'product'
-		volume = function(v)
-			return <?=fields:mapi(function(x) return 'v.'..x end):concat(' * ')?>
-		end,
-
-		-- normal first so the function arguments can be 1:1 with plane project
-		project = function(n, v)
-			return v - n * (n:dot(v) / n:dot(n))
-		end,
-	} do
-		cl[k] = v
+		end
+		b = tonumber(b)
+		if b == nil then
+			error("can't handle "..tostring(b).." (type "..type(b)..")")
+		end
+		return metatype(<?=fields:mapi(function(x)
+			return 'a.'..x..info.symbol..'b'
+		end):concat(', ')?>)
+	end
+<? end
+?>
+	cl.__unm = function(v)
+		return v * -1
 	end
 
+	cl.map = function(v, m)
+		return metatype(<?=
+			fields:mapi(function(x,i)
+				return 'm(v.'..x..', '..(i-1)..')'
+			end):concat', '
+		?>)
+	end
+
+	cl.lenSq = function(a)
+		return a:dot(a)
+	end
+
+	cl.length = function(a)
+		return math.sqrt(a:lenSq())
+	end
+
+	cl.dot = function(a,b)
+		return <?=
+fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
+?>	end
+
+	cl.normalize = function(v)
+		return v / v:length()
+	end
+
+	-- naming compat with Matlab/matrix
+	cl.normSq = function(a)
+		return a:dot(a)
+	end
+
+	cl.norm = function(a)
+		return math.sqrt(a:lenSq())
+	end
+
+	cl.unit = function(v)
+		return v / v:length()
+	end
+
+	cl.unitOrZeroEpsilon = 1e-7
+
+	-- useful for surface normal / quaternion angle/axis
+	cl.unitOrZero = function(v, eps)
+		eps = eps or metatype.unitOrZeroEpsilon
+		local vlen = v:norm()
+		if vlen <= eps or not math.isfinite(vlen) then
+			return metatype(), vlen
+		end
+		return v / vlen, vlen
+	end
+
+	cl.lInfLength = function(v)	-- L-infinite length
+		local fp = v.s
+		local dist = math.abs(fp[0])
+		for i=1,<?=dim?>-1 do
+			dist = math.max(dist, math.abs(fp[i]))
+		end
+		return dist
+	end
+
+	cl.l1Length = function(v)	--L-1 length
+		local fp = v.s
+		local dist = math.abs(fp[0])
+		for i=1,<?=dim?>-1 do
+			dist = dist + math.abs(fp[i])
+		end
+		return dist
+	end
+
+	-- TODO call this 'product'
+	cl.volume = function(v)
+		return <?=fields:mapi(function(x) return 'v.'..x end):concat(' * ')?>
+	end
+
+	-- normal first so the function arguments can be 1:1 with plane project
+	cl.project = function(n, v)
+		return v - n * (n:dot(v) / n:dot(n))
+	end
 
 -- allow the caller to override/add any functions
 
