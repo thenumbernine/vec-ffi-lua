@@ -35,6 +35,7 @@ build = {
       ["vec-ffi.vec2f"] = "vec2f.lua",
       ["vec-ffi.vec2i"] = "vec2i.lua",
       ["vec-ffi.vec2s"] = "vec2s.lua",
+      ["vec-ffi.vec2sz"] = "vec2sz.lua",
       ["vec-ffi.vec2ub"] = "vec2ub.lua",
       ["vec-ffi.vec3b"] = "vec3b.lua",
       ["vec-ffi.vec3d"] = "vec3d.lua",
