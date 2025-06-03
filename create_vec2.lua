@@ -4,8 +4,14 @@ return function(args)
 	return require 'vec-ffi.create_vec'(table(args, {
 		dim = 2,
 		classCode = [[
+
 cl.angle = function(v)
 	return math.atan2(v.y, v.x)
+end
+
+-- such that vec2.exp(theta):angle() == theta
+cl.exp = function(theta)
+	return cl(math.cos(theta), math.sin(theta))
 end
 
 cl.determinant = function(a,b)
