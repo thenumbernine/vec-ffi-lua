@@ -196,6 +196,38 @@ function cl:normalize(res, eps)
 	end
 	return res
 end
+
+
+function cl.slerp(res, from, to, t)
+	res = res or metatype()
+	local cosom = from:dot(to)
+
+	local sign = 1
+	if cosom < 0 then
+		cosom = -cosom
+		sign = -sign
+	end
+
+	local scale0, scale1
+	if cosom < (1 - 1e-5) then
+		local omega = math.acos(cosom)
+		local sinom = math.sin(omega)
+		scale0 = math.sin((1 - t) * omega) / sinom
+		scale1 = math.sin(t * omega) / sinom
+	else
+		scale0 = 1 - t
+		scale1 = t
+	end
+	scale1 = scale1 * sign
+
+	res.x = from.x * scale0 + to.x * scale1
+	res.y = from.y * scale0 + to.y * scale1
+	res.z = from.z * scale0 + to.z * scale1
+	res.w = from.w * scale0 + to.w * scale1
+	return res
+end
+
+
 ]],
 	}
 end
