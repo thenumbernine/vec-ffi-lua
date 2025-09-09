@@ -29,6 +29,7 @@ local args = ...
 local vectype = args.vectype
 local dim = args.dim
 local ffi = require 'ffi'
+local op = require 'ext.op'
 
 local metatype
 
@@ -117,8 +118,10 @@ local function modifyMetatable(cl)
 			if (type(varg) == 'cdata' or type(varg) == 'table')
 			-- NOTICE if varg is cdata then the next test will error upon failure
 			-- because luajit decided to error on invalid index instead of lua's just-return-nil behavior
-			and varg.min
-			and varg.max
+			-- and NOTICE I can get around it by using op.safeindex
+			-- BUT this is a xpcall and it is slow!
+			and op.safeindex(varg, 'min')
+			and op.safeindex(varg, 'max')
 			then
 				vmin, vmax = varg.min, varg.max
 			else
