@@ -3,6 +3,7 @@ files = {
 	["README.md"] = "vec-ffi/README.md",
 	["box2f.lua"] = "vec-ffi/box2f.lua",
 	["box2i.lua"] = "vec-ffi/box2i.lua",
+	["box3d.lua"] = "vec-ffi/box3d.lua",
 	["box3f.lua"] = "vec-ffi/box3f.lua",
 	["create_box.lua"] = "vec-ffi/create_box.lua",
 	["create_plane.lua"] = "vec-ffi/create_plane.lua",

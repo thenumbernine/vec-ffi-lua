@@ -18,6 +18,18 @@ local vec3 = require '<?=vec3require?>'
 cl.mul = function(q, r, res)
 	if not res then res = metatype() end
 
+	if type(q) == 'number' then
+		-- ... then r better be a quat ...
+		q, r = r, q
+	end
+	if type(r) == 'number' then
+		res.x = r * q.x
+		res.y = r * q.y
+		res.z = r * q.z
+		res.w = r * q.w
+		return res
+	end
+
 	local a = (q.w + q.x) * (r.w + r.x)
 	local b = (q.z - q.y) * (r.y - r.z)
 	local c = (q.x - q.w) * (r.y + r.z)
