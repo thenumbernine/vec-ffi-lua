@@ -5,6 +5,7 @@ files = {
 	["box2i.lua"] = "vec-ffi/box2i.lua",
 	["box3d.lua"] = "vec-ffi/box3d.lua",
 	["box3f.lua"] = "vec-ffi/box3f.lua",
+	["box3i.lua"] = "vec-ffi/box3i.lua",
 	["create_box.lua"] = "vec-ffi/create_box.lua",
 	["create_plane.lua"] = "vec-ffi/create_plane.lua",
 	["create_quat.lua"] = "vec-ffi/create_quat.lua",
