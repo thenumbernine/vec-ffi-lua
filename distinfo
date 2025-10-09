@@ -39,6 +39,7 @@ files = {
 	["vec4f.lua"] = "vec-ffi/vec4f.lua",
 	["vec4i.lua"] = "vec-ffi/vec4i.lua",
 	["vec4ub.lua"] = "vec-ffi/vec4ub.lua",
+	["vec4us.lua"] = "vec-ffi/vec4us.lua",
 }
 deps = {
 	"ext",
