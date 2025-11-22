@@ -43,5 +43,6 @@ files = {
 }
 deps = {
 	"ext",
+	"struct",
 	"template",
 }
