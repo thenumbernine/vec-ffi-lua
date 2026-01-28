@@ -5,6 +5,10 @@ TODO find who uses this
 rename .typeCode to .code
 rename .type to .name
 get rid of sizeof ?
+get rid of name, just use a ffi.typeof object
+add degree
+add rest of Tensor library functions
+make everything inlined/unrolled
 --]]
 
 
@@ -47,7 +51,7 @@ local metatype
 local function modifyMetatable(cl)
 
 	cl.elemType = ctype
-	cl.dim = dim
+	cl.dim = <?=dim?>
 
 	-- TODO get rid of this one? just use ffi.sizeof ?
 	-- or move this back to struct?
@@ -134,8 +138,20 @@ local function modifyMetatable(cl)
 		return a:dot(a)
 	end
 
+	-- naming compat with Matlab/matrix
+	cl.normSq = function(a)
+		return a:dot(a)
+	end
+
 	cl.length = function(a)
 		return math.sqrt(a:lenSq())
+	end
+
+	cl.norm = function(a)
+		return math.sqrt(a:lenSq())
+	end
+	cl.distance = function(a, b)
+		return (a - b):length()
 	end
 
 	cl.dot = function(a,b)
@@ -145,15 +161,6 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 
 	cl.normalize = function(v)
 		return v / v:length()
-	end
-
-	-- naming compat with Matlab/matrix
-	cl.normSq = function(a)
-		return a:dot(a)
-	end
-
-	cl.norm = function(a)
-		return math.sqrt(a:lenSq())
 	end
 
 	cl.unit = function(v)
@@ -199,6 +206,25 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 	cl.project = function(n, v)
 		return v - n * (n:dot(v) / n:dot(n))
 	end
+
+	cl.elemMul = function(a,b)
+		local v = metatype()
+		for i=0,<?=dim?>-1 do
+			v.s[i] = a.s[i] * b.s[i]
+		end
+		return v
+	end
+
+--[[
+	cl.outer = function(a,b)
+		local resultType = vec<b.type>
+		local result = resultType()
+		for i=0,<?=dim-1?> do
+			result.s[i] = a.s[i] * b
+		end
+		return result
+	end,
+--]]
 
 -- allow the caller to override/add any functions
 
