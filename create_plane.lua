@@ -1,4 +1,5 @@
 local ffi = require 'ffi'
+local assert = require 'ext.assert'
 local table = require 'ext.table'
 local template = require 'template'
 local showcode = require 'template.showcode'
