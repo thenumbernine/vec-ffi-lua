@@ -43,6 +43,7 @@ return function(env)
 
 	-- matrix
 
+	env.vec2x2f = require 'vec-ffi.vec2x2f'
 	env.vec3x3f = require 'vec-ffi.vec3x3f'
 	env.vec4x4f = require 'vec-ffi.vec4x4f'
 

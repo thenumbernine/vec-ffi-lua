@@ -46,6 +46,7 @@ files = {
 	"vec4i.lua",
 	"vec4ub.lua",
 	"vec4us.lua",
+	"vec2x2f.lua",
 	"vec3x3f.lua",
 	"vec4x4f.lua",
 }
