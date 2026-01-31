@@ -80,6 +80,7 @@ end
 
 
 -- aj and bj are 1-based indexes to contract
+-- TODO make this an in-place operation
 local function matrixInner(a,b,aj,bj)
 	-- now nested iter across all shared indexes
 	-- and then contract the common indexes
@@ -244,29 +245,30 @@ createVecType = function(args)
 	args.matrixGetIndex = matrixGetIndex
 	args.matrixSetIndex = matrixSetIndex
 
+	-- cuz I am tired of syntax highlighting being missing, and having to copy through scope so many times ...
+	args.modifyMetatable = function(cl)
+		cl.elemType = args.ctype
+		cl.scalarType = args.scalarType
+		cl.dim = args.dim
+		cl.dims = args.dims
+		cl.isVector = true
+		cl.inner = matrixInner
+		cl.getIndex = matrixGetIndex
+		cl.setIndex = matrixSetIndex
+	end
+
 	local code = template([=[
 local ffi = require 'ffi'
 local math = require 'ext.math'
 local args = ...
 local cl = args.cl
-local dim = args.dim
-local vectype = args.vectype
-local ctype = args.ctype
-local scalarType = args.scalarType
-local dims = args.dims
-local matrixInner = args.matrixInner
-local matrixGetIndex = args.matrixGetIndex
-local matrixSetIndex = args.matrixSetIndex
 
 local metatype
 
 local function modifyMetatable(cl)
+	args.modifyMetatable(cl)
 
-	cl.elemType = ctype
-	cl.scalarType = scalarType
-	cl.dim = <?=dim?>
-	cl.dims = dims
-	cl.isVector = true
+	local matrixInner = cl.inner
 
 	-- TODO get rid of this one? just use ffi.sizeof ?
 	-- or move this back to struct?
@@ -452,10 +454,6 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 	end,
 --]]
 
-	cl.inner = matrixInner
-	cl.getIndex = matrixGetIndex
-	cl.setIndex = matrixSetIndex
-
 -- allow the caller to override/add any functions
 
 ]=]
@@ -487,7 +485,7 @@ metatype = struct{
 		{
 			type = struct{
 				anonymous = true,
-				fields = range(0, dim-1):mapi(function(i)
+				fields = range(0, args.dim-1):mapi(function(i)
 					return {name='s'..i, type=args.ctype}
 				end),
 			},
