@@ -17,6 +17,7 @@ files = {
 	"create_vec2.lua",
 	"create_vec3.lua",
 	"distinfo",
+	"env.lua",
 	"plane2f.lua",
 	"plane3f.lua",
 	"quatd.lua",
@@ -45,6 +46,7 @@ files = {
 	"vec4i.lua",
 	"vec4ub.lua",
 	"vec4us.lua",
+	"vec4x4f.lua",
 }
 deps = {
 	"ext",

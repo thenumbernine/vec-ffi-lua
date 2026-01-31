@@ -49,6 +49,8 @@ end
 
 local createVecType
 
+-- NOTICE this will run createVecType on our newly cached type
+-- it will skip specializations of create_vec2 and create_vec3
 local function getOrCreateCachedType(dims, scalarType)
 	assert.ge(#dims, 1)
 --DEBUG:print('getOrCreateCachedType', require'ext.tolua'(dims), scalarType)
@@ -296,7 +298,7 @@ args:
 	suffix = (optional) suffix of classname.  defaults are above.
 	classCode = (optional) additional functions to put in the metatable
 --]]
-createVecType = function(args)
+local createVecType = function(args)
 --DEBUG:print'create_vec'
 	assert(args)
 	args = table(args)

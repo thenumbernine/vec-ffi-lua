@@ -3,10 +3,7 @@ local ffi = require 'ffi'
 require 'ext'
 require 'vec-ffi'
 assert.eq(ffi.sizeof'vec3b_t', 3)
-
-local vec3x3f = require 'vec-ffi.create_vec3'{
-	ctype = 'vec3f_t',
-}
+assert.eq(ffi.sizeof'vec3x3f_t', 3*3*4)
 
 local x = vec3f(10,11,12)
 print(x)
