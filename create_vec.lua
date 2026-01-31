@@ -68,7 +68,7 @@ local function isScalar(a)
 	return not op.safeindex(a, 'isVector')
 end
 
-local function matrixScale(a,s)
+local function matrixScaleRet(a,s)
 	if isScalar(a) then return a * s end
 	assert(isScalar(s))
 	for i=0,a.dim-1 do
@@ -77,22 +77,117 @@ local function matrixScale(a,s)
 	return a
 end
 
+local function matrixScaleInto(y,a,s)
+	if isScalar(a) then
+		assert(not isScalar(s))
+		return matrixScaleInto(y, s, a)
+	end
+	assert(isScalar(s))
+	assert.eq(y.rank, a.rank)
+	assert.eq(y.dim, a.dim)
+	if y.rank == 1 then
+		for i=0,a.dim-1 do
+			y.s[i] = a.s[i] * s
+		end
+	else
+		for i=0,a.dim-1 do
+			matrixScaleInto(y.s[i], a.s[i], s)
+		end
+	end
+	return y
+end
+
 
 
 -- aj and bj are 1-based indexes to contract
 -- TODO make this an in-place operation
-local function matrixInner(a,b,aj,bj)
+local function matrixInnerInto(y,a,b,aj,bj)
 	-- now nested iter across all shared indexes
 	-- and then contract the common indexes
 	-- TODO code-gen this in resultType and it'll go much faster than at runtime
 	-- but since the matching a's last and b's first dim can be arbitrary,
 	--  we'll have to cache multiple multiplication/contraction functions...
+	assert(not isScalar(y))
+	if isScalar(a) then
+		assert(not isScalar(b))
+		return matrixScaleInto(y, b, a)
+	elseif isScalar(b) then
+		return matrixScaleInto(y, a, b)
+	end
 
+	local sa = table(a.dims)
+	local sb = table(b.dims)
+	local dega = #sa
+	local degb = #sb
+--DEBUG:print('dega', dega, 'degb', degb)
+	if aj then
+		assert.le(1, aj)
+		assert.le(aj, dega)
+	else
+		aj = dega
+	end
+	if bj then
+		assert.le(1, bj)
+		assert.le(bj, degb)
+	else
+		bj = 1
+	end
+	local ssa = table(sa)
+	local saj = ssa:remove(aj)
+	local ssb = table(sb)
+	local sbj = ssb:remove(bj)
+	assert.eq(saj, sbj, "inner dimensions must be equal")
+	local sc = table(ssa):append(ssb)
+
+	assert(#sc > 0, "for result scalars, please use matrixInnerRet")
+	local resultType = ffi.typeof(y)
+
+	local n = #sc
+	-- n == #resultType.dims == resultType.rank
+	local i = table()
+	for j=1,n do
+		i[j] = 0
+	end
+
+	local done
+	repeat
+		local ia = table{table.unpack(i,1,#sa-1)}
+		ia:insert(aj,0)
+		local ib = table{table.unpack(i,#sa)}
+		ib:insert(bj,0)
+
+		local sum = 0
+		for u=0,saj-1 do
+			ia[aj] = u
+			ib[bj] = u
+			local ai = a:getIndex(ia:unpack())
+			local bi = b:getIndex(ib:unpack())
+--DEBUG:print('ia', require'ext.tolua'(ia), ai)
+--DEBUG:print('ib', require'ext.tolua'(ib), bi)
+			--assert.type(ai, 'number')
+			--assert.type(bi, 'number')
+			sum = sum + ai * bi
+		end
+--DEBUG:print('i', require'ext.tolua'(i), 'sum', sum)
+		y:setIndex(sum, i:unpack())
+
+		for j=n,1,-1 do
+			i[j] = i[j] + 1
+			if i[j] < sc[j] then break end
+			i[j] = 0
+			if j == 1 then done = true end
+		end
+	until done
+
+	return y
+end
+
+local function matrixInnerRet(a,b,aj,bj)
 	if isScalar(a) then
 		if isScalar(b) then return a * b end
-		return matrixScale(b, a)
+		return matrixScaleRet(b, a)
 	elseif isScalar(b) then
-		return matrixScale(a,b)
+		return matrixScaleRet(a,b)
 	end
 
 	local sa = table(a.dims)
@@ -124,7 +219,6 @@ local function matrixInner(a,b,aj,bj)
 		resultIsScalar
 		and a.scalarType
 		or getOrCreateCachedType(sc, a.scalarType)
-	local y = resultType()
 
 	local n = #sc
 	-- n == #resultType.dims == resultType.rank
@@ -132,6 +226,8 @@ local function matrixInner(a,b,aj,bj)
 	for j=1,n do
 		i[j] = 0
 	end
+
+	local y = resultType()
 
 	local done
 	repeat
@@ -241,7 +337,8 @@ createVecType = function(args)
 	args.fields = (args.fields or table{'x', 'y', 'z', 'w'}):sub(1, args.dim)
 
 	-- handoff to code's env
-	args.matrixInner = matrixInner
+	args.matrixInnerRet = matrixInnerRet
+	args.matrixInnerInto = matrixInnerInto
 	args.matrixGetIndex = matrixGetIndex
 	args.matrixSetIndex = matrixSetIndex
 
@@ -251,8 +348,8 @@ createVecType = function(args)
 		cl.scalarType = args.scalarType
 		cl.dim = args.dim
 		cl.dims = args.dims
+		cl.rank = #cl.dims
 		cl.isVector = true
-		cl.inner = matrixInner
 		cl.getIndex = matrixGetIndex
 		cl.setIndex = matrixSetIndex
 	end
@@ -262,13 +359,14 @@ local ffi = require 'ffi'
 local math = require 'ext.math'
 local args = ...
 local cl = args.cl
+local matrixInnerRet = args.matrixInnerRet
+local matrixInnerInto = args.matrixInnerInto
 
 local metatype
 
 local function modifyMetatable(cl)
 	args.modifyMetatable(cl)
 
-	local matrixInner = cl.inner
 
 	-- TODO get rid of this one? just use ffi.sizeof ?
 	-- or move this back to struct?
@@ -332,7 +430,7 @@ local function modifyMetatable(cl)
 -- ... otherwise, we would need access to types other than 'a' or 'b'
 -- ... and that means i need some sort of type caching / namespace
 ?>
-			return matrixInner(a, b, #a.dims, 1)
+			return matrixInnerRet(a, b, #a.dims, 1)
 
 <? else ?>
 			return metatype(<?=fields:mapi(function(x)
@@ -453,6 +551,9 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 		return result
 	end,
 --]]
+
+	-- in-place multiplication
+	cl.mul = matrixInnerInto
 
 -- allow the caller to override/add any functions
 
