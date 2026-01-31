@@ -295,7 +295,7 @@ args:
 	ctype = vector element type
 	vectype = (optional) vector class name.	 default = vec<dim><suffix>_t
 	fields = (optional) list of fields to use.  default = xyzw.
-	suffix = (optional) suffix of classname.  defaults are above.
+	suffix = (optional) suffix of classname.  defaults are above.  not used if vectype is provided.
 	classCode = (optional) additional functions to put in the metatable
 --]]
 local createVecType = function(args)
@@ -314,12 +314,6 @@ local createVecType = function(args)
 --DEBUG:print('', 'scalarType='..args.scalarType)
 	args.scalarType = assert(ffi.typeof(args.scalarType))
 
-	if not args.suffix then
-		local scalarFFIName = assert(tostring(args.scalarType):match'^ctype<(.*)>$')
-		args.suffix = assert.index(suffixes, scalarFFIName)
-	end
---DEBUG:print('', 'suffix='..args.suffix)
-
 	args.dims = table(op.safeindex(ctypemt, 'dims') or {}):append{args.dim}
 --DEBUG:print('', 'dims='..args.dims:concat'x')
 
@@ -328,6 +322,14 @@ local createVecType = function(args)
 	local cacheThisAsAVectorClass
 	if not args.vectype then
 		cacheThisAsAVectorClass = true
+
+		-- suffix is only needed for our cached-and-generated classes i.e. vec2x2f vec3x3f vec4x4f etc
+		if not args.suffix then
+			local scalarFFIName = assert(tostring(args.scalarType):match'^ctype<(.*)>$')
+			args.suffix = assert.index(suffixes, scalarFFIName)
+		end
+--DEBUG:print('', 'suffix='..args.suffix)
+
 		-- TODO should match the cache stuff above
 		-- TODO TODO drop the _t and it's all much easier
 		local nesting = args.dims:concat'x'..args.suffix
