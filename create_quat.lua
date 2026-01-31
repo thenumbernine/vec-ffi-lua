@@ -1,15 +1,19 @@
-local suffix = require 'vec-ffi.suffix'
+local ffi = require 'ffi'
+local suffixes = require 'vec-ffi.suffix'
 
 return function(ctype)
+	local ctype = ffi.typeof(ctype)
+	local ctypename = tostring(ctype):match'^ctype<(.*)>$'
+	local suffix = suffixes[ctypename]
 	return require 'vec-ffi.create_vec'{
 		dim = 4,
 		ctype = ctype,
 
 		-- manually-named vectypes == don't cache this for matrix operations
-		vectype = 'quat'..suffix[ctype]..'_t',
+		vectype = 'quat'..suffix..'_t',
 
 		-- create the 3type associated with our quat 4type
-		vec3require = 'vec-ffi.vec3'..suffix[ctype],
+		vec3require = 'vec-ffi.vec3'..suffix,
 
 -- TODO allow self.references somehow
 -- how about a callback to modify cl?

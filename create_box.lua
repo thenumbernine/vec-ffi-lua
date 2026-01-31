@@ -1,3 +1,4 @@
+local ffi = require 'ffi'
 local table = require 'ext.table'
 local template = require 'template'
 local showcode = require 'template.showcode'
@@ -7,8 +8,9 @@ return function(vectype)
 	assert(vectype)
 
 	local dim = vectype.dim
-	local ctype = vectype.elemType
-	local suffix = suffixes[ctype]
+	local ctype = ffi.typeof(vectype.ctype)
+	local ctypename = tostring(ctype):match'^ctype<(.*)>$'
+	local suffix = suffixes[ctypename]
 
 	local args = {
 		dim = dim,
@@ -35,7 +37,7 @@ local metatype
 
 local function modifyMetatable(cl)
 
-	cl.elemType = '<?=vectype.name?>'
+	cl.ctype = ffi.typeof'<?=vectype.name?>'
 	cl.dim = dim
 	cl.sizeof = ffi.sizeof(cl.name)
 
@@ -83,7 +85,9 @@ local function modifyMetatable(cl)
 			local varg = ...
 			-- <?=boxtype?>:isa(varg) won't cast between boxtypes ...
 			-- wish luajit behavior had stuck to Lua convention of returning nil (fast) over throwing errors (slow) for simple things like accessing fields or detecting types ...
-			if type(varg) == 'cdata' and tostring(ffi.typeof(varg)):sub(1,15) == 'ctype<union box' then
+			if type(varg) == 'cdata'
+			and tostring(ffi.typeof(varg)):sub(1,15) == 'ctype<union box'
+			then
 				vmin, vmax = varg.min, varg.max
 			else
 				vmin, vmax = varg, varg

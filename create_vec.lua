@@ -304,13 +304,12 @@ local createVecType = function(args)
 	args = table(args)
 	assert(args.dim)
 --DEBUG:print('', 'dim='..args.dim)
-	assert(args.ctype)
+	args.ctype = ffi.typeof((assert.index(args, 'ctype')))
 --DEBUG:print('', 'ctype='..args.ctype)
 
 	args.classCode = args.classCode or ''
 
-	local ffictype = ffi.typeof(args.ctype)
-	local ctypemt = op.safeindex(ffictype, 'metatable')
+	local ctypemt = op.safeindex(args.ctype, 'metatable')
 	args.scalarType = op.safeindex(ctypemt, 'scalarType') or args.ctype
 --DEBUG:print('', 'scalarType='..args.scalarType)
 	args.scalarType = assert(ffi.typeof(args.scalarType))
@@ -346,7 +345,7 @@ local createVecType = function(args)
 
 	-- cuz I am tired of syntax highlighting being missing, and having to copy through scope so many times ...
 	args.modifyMetatable = function(cl)
-		cl.elemType = args.ctype
+		cl.ctype = args.ctype
 		cl.scalarType = args.scalarType
 		cl.dim = args.dim
 		cl.dims = args.dims
@@ -597,7 +596,14 @@ metatype = struct{
 
 		{
 			name = 's',
-			type = args.ctype..'['..#args.fields..']',
+			type = ffi.typeof('$['..#args.fields..']', args.ctype),
+			no_iter = true,
+		},
+
+		-- really I'm only calling this "ptr" for matrix.ffi compat ...
+		{
+			name = 'ptr',
+			type = ffi.typeof('$['..args.dims:product()..']', args.scalarType),
 			no_iter = true,
 		},
 	},

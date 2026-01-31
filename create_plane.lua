@@ -1,3 +1,4 @@
+local ffi = require 'ffi'
 local table = require 'ext.table'
 local template = require 'template'
 local showcode = require 'template.showcode'
@@ -5,9 +6,10 @@ local suffixes = require 'vec-ffi.suffix'
 
 return function(args)
 	local dim = assert(args.dim)
-	local ctype = assert(args.ctype)
+	local ctype = ffi.typeof((assert.index(args, 'ctype')))
+	local ctypename = tostring(ctype):match'^ctype<(.*)>$'
 
-	local suffix = suffixes[ctype]
+	local suffix = suffixes[ctypename]
 	args.suffix = suffix
 	local vecNType = require('vec-ffi.vec'..dim..suffix)
 	args.vecNType = vecNType
@@ -32,7 +34,7 @@ local dim = <?=dim?>
 local metatype
 
 local function modifyMetatable(cl)
-	cl.elemType = '<?=ctype?>'
+	cl.ctype = ffi.typeof'<?=ctype?>'
 	-- this is the dimension the plane resides in
 	-- so the plane is dim+1 elements
 	cl.dim = dim
