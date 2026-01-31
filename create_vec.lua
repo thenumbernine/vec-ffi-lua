@@ -14,9 +14,181 @@ make everything inlined/unrolled
 
 local ffi = require 'ffi'
 local table = require 'ext.table'
+local op = require 'ext.op'
+local assert = require 'ext.assert'
 local template = require 'template'
 local showcode = require 'template.showcode'
-local suffix = require 'vec-ffi.suffix'
+local suffixes = require 'vec-ffi.suffix'
+
+local function getCachedType(dims, scalarType)
+	local scalarFFIType = assert(ffi.typeof(scalarType))
+	local scalarFFIName = assert(tostring(scalarFFIType):match'^ctype<(.*)>$')
+	local suffix = assert.index(suffixes, scalarFFIName)
+	local luaname = 'vec'..dims:concat'x'..suffix
+--DEBUG:print('getCachedType', luaname)
+
+	return package.loaded['vec-ffi.'..luaname]
+end
+
+local function setCachedType(dims, scalarType, mt)
+	assert.type(mt, 'cdata')
+	local mtname = op.safeindex(mt, 'name')
+	if not mtname then error("failed to find name for "..tostring(mt)) end
+	local vecname = assert(mtname:match'^(.*)_t$' , "expected vec.*_t")
+
+	local scalarFFIType = assert(ffi.typeof(scalarType))
+	local scalarFFIName = assert(tostring(scalarFFIType):match'^ctype<(.*)>$')
+	local suffix = assert.index(suffixes, scalarFFIName)
+	local luaname = 'vec'..dims:concat'x'..suffix
+
+	assert.eq(mtname, luaname..'_t')
+
+--DEBUG:print('setCachedType', luaname)
+	package.loaded['vec-ffi.'..luaname] = mt
+end
+
+local createVecType
+
+local function getOrCreateCachedType(dims, scalarType)
+	assert.ge(#dims, 1)
+--DEBUG:print('getOrCreateCachedType', require'ext.tolua'(dims), scalarType)
+	local cl = getCachedType(dims, scalarType)
+	if not cl then
+		assert.gt(#dims, 1)
+		cl = createVecType{
+			dim = dims[1],
+			ctype = getOrCreateCachedType(dims:sub(2), scalarType),
+		}
+		setCachedType(dims, scalarType, cl)
+	end
+	return cl
+end
+
+local function isScalar(a)
+	return not op.safeindex(a, 'isVector')
+end
+
+local function matrixScale(a,s)
+	if isScalar(a) then return a * s end
+	assert(isScalar(s))
+	for i=0,a.dim-1 do
+		a.s[i] = a.s[i] * s
+	end
+	return a
+end
+
+
+
+-- aj and bj are 1-based indexes to contract
+local function matrixInner(a,b,aj,bj)
+	-- now nested iter across all shared indexes
+	-- and then contract the common indexes
+	-- TODO code-gen this in resultType and it'll go much faster than at runtime
+	-- but since the matching a's last and b's first dim can be arbitrary,
+	--  we'll have to cache multiple multiplication/contraction functions...
+
+	if isScalar(a) then
+		if isScalar(b) then return a * b end
+		return matrixScale(b, a)
+	elseif isScalar(b) then
+		return matrixScale(a,b)
+	end
+
+	local sa = table(a.dims)
+	local sb = table(b.dims)
+	local dega = #sa
+	local degb = #sb
+--DEBUG:print('dega', dega, 'degb', degb)
+	if aj then
+		assert.le(1, aj)
+		assert.le(aj, dega)
+	else
+		aj = dega
+	end
+	if bj then
+		assert.le(1, bj)
+		assert.le(bj, degb)
+	else
+		bj = 1
+	end
+	local ssa = table(sa)
+	local saj = ssa:remove(aj)
+	local ssb = table(sb)
+	local sbj = ssb:remove(bj)
+	assert.eq(saj, sbj, "inner dimensions must be equal")
+	local sc = table(ssa):append(ssb)
+
+	local resultIsScalar = #sc == 0
+	local resultType =
+		resultIsScalar
+		and a.scalarType
+		or getOrCreateCachedType(sc, a.scalarType)
+	local y = resultType()
+
+	local n = #sc
+	-- n == #resultType.dims == resultType.rank
+	local i = table()
+	for j=1,n do
+		i[j] = 0
+	end
+
+	local done
+	repeat
+		local ia = table{table.unpack(i,1,#sa-1)}
+		ia:insert(aj,0)
+		local ib = table{table.unpack(i,#sa)}
+		ib:insert(bj,0)
+
+		local sum = 0
+		for u=0,saj-1 do
+			ia[aj] = u
+			ib[bj] = u
+			local ai = a:getIndex(ia:unpack())
+			local bi = b:getIndex(ib:unpack())
+--DEBUG:print('ia', require'ext.tolua'(ia), ai)
+--DEBUG:print('ib', require'ext.tolua'(ib), bi)
+			--assert.type(ai, 'number')
+			--assert.type(bi, 'number')
+			sum = sum + ai * bi
+		end
+--DEBUG:print('i', require'ext.tolua'(i), 'sum', sum)
+		if resultIsScalar then
+			y = sum
+			break
+		else
+			y:setIndex(sum, i:unpack())
+		end
+
+		for j=n,1,-1 do
+			i[j] = i[j] + 1
+			if i[j] < sc[j] then break end
+			i[j] = 0
+			if j == 1 then done = true end
+		end
+	until done
+
+	return y
+end
+
+local function matrixGetIndex(a, ...)
+	local n = select('#', ...)
+	assert.gt(n, 0)
+	if n == 1 then
+		return a.s[...]
+	else
+		return matrixGetIndex(a.s[...], select(2, ...))
+	end
+end
+
+local function matrixSetIndex(a, x, ...)
+	local n = select('#', ...)
+	assert.gt(n, 0)
+	if n == 1 then
+		a.s[...] = x
+	else
+		return matrixSetIndex(a.s[...], x, select(2, ...))
+	end
+end
 
 --[[
 args:
@@ -27,15 +199,50 @@ args:
 	suffix = (optional) suffix of classname.  defaults are above.
 	classCode = (optional) additional functions to put in the metatable
 --]]
-return function(args)
+createVecType = function(args)
+--DEBUG:print'create_vec'
 	assert(args)
 	args = table(args)
 	assert(args.dim)
+--DEBUG:print('', 'dim='..args.dim)
 	assert(args.ctype)
-	args.suffix = args.suffix or suffix[args.ctype]
+--DEBUG:print('', 'ctype='..args.ctype)
+
 	args.classCode = args.classCode or ''
-	args.vectype = args.vectype or 'vec'..args.dim..args.suffix..'_t'
+
+	local ffictype = ffi.typeof(args.ctype)
+	local ctypemt = op.safeindex(ffictype, 'metatable')
+	args.scalarType = op.safeindex(ctypemt, 'scalarType') or args.ctype
+--DEBUG:print('', 'scalarType='..args.scalarType)
+	args.scalarType = assert(ffi.typeof(args.scalarType))
+
+	if not args.suffix then
+		local scalarFFIName = assert(tostring(args.scalarType):match'^ctype<(.*)>$')
+		args.suffix = assert.index(suffixes, scalarFFIName)
+	end
+--DEBUG:print('', 'suffix='..args.suffix)
+
+	args.dims = table(op.safeindex(ctypemt, 'dims') or {}):append{args.dim}
+--DEBUG:print('', 'dims='..args.dims:concat'x')
+
+	-- me thinking about caching types to prevent duplicate type-generation for when I need to create arbitrary-typed results in my math operations
+	-- but I won't want to cache non-vec classes that use this, such as box, plane, quat ...
+	local cacheThisAsAVectorClass
+	if not args.vectype then
+		cacheThisAsAVectorClass = true
+		-- TODO should match the cache stuff above
+		-- TODO TODO drop the _t and it's all much easier
+		local nesting = args.dims:concat'x'..args.suffix
+		args.vectype = 'vec'..nesting..'_t'
+--DEBUG:print('making vectype name', args.vectype)
+	end
+
 	args.fields = (args.fields or table{'x', 'y', 'z', 'w'}):sub(1, args.dim)
+
+	-- handoff to code's env
+	args.matrixInner = matrixInner
+	args.matrixGetIndex = matrixGetIndex
+	args.matrixSetIndex = matrixSetIndex
 
 	local code = template([=[
 local ffi = require 'ffi'
@@ -45,13 +252,21 @@ local cl = args.cl
 local dim = args.dim
 local vectype = args.vectype
 local ctype = args.ctype
+local scalarType = args.scalarType
+local dims = args.dims
+local matrixInner = args.matrixInner
+local matrixGetIndex = args.matrixGetIndex
+local matrixSetIndex = args.matrixSetIndex
 
 local metatype
 
 local function modifyMetatable(cl)
 
 	cl.elemType = ctype
+	cl.scalarType = scalarType
 	cl.dim = <?=dim?>
+	cl.dims = dims
+	cl.isVector = true
 
 	-- TODO get rid of this one? just use ffi.sizeof ?
 	-- or move this back to struct?
@@ -108,9 +323,20 @@ local function modifyMetatable(cl)
 					return 'a'..info.symbol..'b.'..x
 				end):concat(', ')?>)
 			end
+<? if info.name == 'mul' then
+-- just for mul of rank-n vectors, outer+contract the result
+-- hmm that means mul only works with types available provided the ranks are 1 or 2 ...
+-- (or depending on if the dims match)
+-- ... otherwise, we would need access to types other than 'a' or 'b'
+-- ... and that means i need some sort of type caching / namespace
+?>
+			return matrixInner(a, b, #a.dims, 1)
+
+<? else ?>
 			return metatype(<?=fields:mapi(function(x)
 				return 'a.'..x..info.symbol..'b.'..x
 			end):concat(', ')?>)
+<? end ?>
 		end
 		b = tonumber(b)
 		if b == nil then
@@ -226,6 +452,10 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 	end,
 --]]
 
+	cl.inner = matrixInner
+	cl.getIndex = matrixGetIndex
+	cl.setIndex = matrixSetIndex
+
 -- allow the caller to override/add any functions
 
 ]=]
@@ -288,5 +518,12 @@ return metatype
 			error("struct sizes mismatch, expected ffi.sizeof("..args.vectype..") = "..vecsize.." to equal args.dim = "..args.dim.." * ffi.sizeof("..args.ctype..") = "..elemsize)
 		end
 	end
+
+	if cacheThisAsAVectorClass then
+		setCachedType(args.dims, args.scalarType, metatype)
+	end
+
 	return metatype
 end
+
+return createVecType

@@ -4,6 +4,8 @@ return function(ctype)
 	return require 'vec-ffi.create_vec'{
 		dim = 4,
 		ctype = ctype,
+
+		-- manually-named vectypes == don't cache this for matrix operations
 		vectype = 'quat'..suffix[ctype]..'_t',
 
 		-- create the 3type associated with our quat 4type

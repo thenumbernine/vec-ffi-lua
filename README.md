@@ -17,3 +17,9 @@ Planes.
 - https://github.com/thenumbernine/lua-ext
 - https://github.com/thenumbernine/struct-lua
 - https://github.com/thenumbernine/lua-template
+
+### TODO's
+
+- overhaul, change the typename to `<prim><n>` instead of `vec<n><suffix>`
+- remove the `_t` from the C names, so the Lua and C names match
+- making typenames optional would be nice, and using `ffi.typeof(typedef)`, but becomes a problem with caching types and with recreating duplicate types unnecessarily...
