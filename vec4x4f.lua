@@ -7,6 +7,8 @@ return require 'vec-ffi.create_vec'{
 
 	classCode = [=[
 
+local assert = require 'ext.assert'
+
 function cl:copy(src)
 	assert.eq(ffi.typeof(self), ffi.typeof(src))
 	ffi.copy(self.s, src.s, ffi.sizeof(self))
