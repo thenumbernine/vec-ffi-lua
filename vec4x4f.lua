@@ -10,7 +10,7 @@ return require 'vec-ffi.create_vec'{
 local assert = require 'ext.assert'
 
 function cl:copy(src)
-	assert.eq(ffi.typeof(self), ffi.typeof(src))
+--DEBUG:assert.eq(ffi.typeof(self), ffi.typeof(src))	-- this will false fail if I'm comparing T& with T ...  TODO removecv<>
 	ffi.copy(self.s, src.s, ffi.sizeof(self))
 	return self
 end
