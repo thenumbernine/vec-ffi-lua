@@ -1,5 +1,4 @@
 local table = require 'ext.table'
-
 return function(args)
 	return require 'vec-ffi.create_vec'(table(args, {
 		dim = 2,
@@ -23,5 +22,5 @@ cl.perpendicular = function(v)
 	return metatype(-v.y, v.x)
 end
 ]],
-	}))
+	}):setmetatable(nil))
 end

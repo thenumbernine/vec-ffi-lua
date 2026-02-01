@@ -1,5 +1,5 @@
 local table = require 'ext.table'
-
+-- maybe I should put the vec3 speicaliztion in all classes?
 return function(args)
 	return require 'vec-ffi.create_vec'(table(args, {
 		dim = args.dim or 3,	-- allow override, for vec4 to inherit vec3's routines, etc
@@ -57,5 +57,5 @@ function cl.perpendicular2(n)
 end
 
 ]],
-	}))
+	}):setmetatable(nil))
 end
