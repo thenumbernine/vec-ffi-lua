@@ -6,16 +6,32 @@ return require 'vec-ffi.create_vec'{
 	ctype = 'vec4f_t',
 
 	classCode = [=[
+<?
+local ffi = require 'ffi'
+local assert = require 'ext.assert'
+local range = require 'ext.range'
+local volume = dims:product()
+
+-- shorthand
+local function ofs(...)
+	return matrixIndexOffset(args, ...)
+end
+?>
 
 local assert = require 'ext.assert'
 
 function cl:copy(src)
 --DEBUG:assert.eq(ffi.typeof(self), ffi.typeof(src))	-- this will false fail if I'm comparing T& with T ...  TODO removecv<>
-	ffi.copy(self.s, src.s, ffi.sizeof(self))
+	ffi.copy(self.s, src.s, <?=
+		-- ffi.sizeof(self)				-- this would be at runtime
+		volume * ffi.sizeof(scalarType)	-- ... or we can inline the size
+?>)
 	return self
 end
 
 function cl:clone()
+	-- notice that metatype doesn't exist yet at the global scope,
+	-- just function scope after global is run
 	return metatype(self)
 end
 
@@ -24,50 +40,29 @@ function cl:mul4x4(a,b)
 	local aptr = a.ptr
 	local bptr = b.ptr
 	local selfptr = self.ptr
-
 --DEBUG:assert.eq(self.rank, 2)
---DEBUG:assert.eq(self.dims[1], 4)
---DEBUG:assert.eq(self.dims[2], 4)
---[[ no temp vars ... any perf diff?
-	-- also assert self isn't the table a or b, or else this will mess up
-	selfptr[0] = aptr[0] * bptr[0] + aptr[4] * bptr[1] + aptr[8] * bptr[2] + aptr[12] * bptr[3]
-	selfptr[4] = aptr[0] * bptr[4] + aptr[4] * bptr[5] + aptr[8] * bptr[6] + aptr[12] * bptr[7]
-	selfptr[8] = aptr[0] * bptr[8] + aptr[4] * bptr[9] + aptr[8] * bptr[10] + aptr[12] * bptr[11]
-	selfptr[12] = aptr[0] * bptr[12] + aptr[4] * bptr[13] + aptr[8] * bptr[14] + aptr[12] * bptr[15]
-	selfptr[1] = aptr[1] * bptr[0] + aptr[5] * bptr[1] + aptr[9] * bptr[2] + aptr[13] * bptr[3]
-	selfptr[5] = aptr[1] * bptr[4] + aptr[5] * bptr[5] + aptr[9] * bptr[6] + aptr[13] * bptr[7]
-	selfptr[9] = aptr[1] * bptr[8] + aptr[5] * bptr[9] + aptr[9] * bptr[10] + aptr[13] * bptr[11]
-	selfptr[13] = aptr[1] * bptr[12] + aptr[5] * bptr[13] + aptr[9] * bptr[14] + aptr[13] * bptr[15]
-	selfptr[2] = aptr[2] * bptr[0] + aptr[6] * bptr[1] + aptr[10] * bptr[2] + aptr[14] * bptr[3]
-	selfptr[6] = aptr[2] * bptr[4] + aptr[6] * bptr[5] + aptr[10] * bptr[6] + aptr[14] * bptr[7]
-	selfptr[10] = aptr[2] * bptr[8] + aptr[6] * bptr[9] + aptr[10] * bptr[10] + aptr[14] * bptr[11]
-	selfptr[14] = aptr[2] * bptr[12] + aptr[6] * bptr[13] + aptr[10] * bptr[14] + aptr[14] * bptr[15]
-	selfptr[3] = aptr[3] * bptr[0] + aptr[7] * bptr[1] + aptr[11] * bptr[2] + aptr[15] * bptr[3]
-	selfptr[7] = aptr[3] * bptr[4] + aptr[7] * bptr[5] + aptr[11] * bptr[6] + aptr[15] * bptr[7]
-	selfptr[11] = aptr[3] * bptr[8] + aptr[7] * bptr[9] + aptr[11] * bptr[10] + aptr[15] * bptr[11]
-	selfptr[15] = aptr[3] * bptr[12] + aptr[7] * bptr[13] + aptr[11] * bptr[14] + aptr[15] * bptr[15]
---]]
--- [[
-	local a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 = aptr[0], aptr[1], aptr[2], aptr[3], aptr[4], aptr[5], aptr[6], aptr[7], aptr[8], aptr[9], aptr[10], aptr[11], aptr[12], aptr[13], aptr[14], aptr[15]
-	local b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15 = bptr[0], bptr[1], bptr[2], bptr[3], bptr[4], bptr[5], bptr[6], bptr[7], bptr[8], bptr[9], bptr[10], bptr[11], bptr[12], bptr[13], bptr[14], bptr[15]
-	selfptr[0]		=	a0  * b0  + a4  * b1  + a8  * b2  + a12 * b3
-	selfptr[4]		=	a0  * b4  + a4  * b5  + a8  * b6  + a12 * b7
-	selfptr[8]		=	a0  * b8  + a4  * b9  + a8  * b10 + a12 * b11
-	selfptr[12]	=	a0  * b12 + a4  * b13 + a8  * b14 + a12 * b15
-	selfptr[1]		=	a1  * b0  + a5  * b1  + a9  * b2  + a13 * b3
-	selfptr[5]		=	a1  * b4  + a5  * b5  + a9  * b6  + a13 * b7
-	selfptr[9]		=	a1  * b8  + a5  * b9  + a9  * b10 + a13 * b11
-	selfptr[13]	=	a1  * b12 + a5  * b13 + a9  * b14 + a13 * b15
-	selfptr[2]		=	a2  * b0  + a6  * b1  + a10 * b2  + a14 * b3
-	selfptr[6]		=	a2  * b4  + a6  * b5  + a10 * b6  + a14 * b7
-	selfptr[10]	=	a2  * b8  + a6  * b9  + a10 * b10 + a14 * b11
-	selfptr[14]	=	a2  * b12 + a6  * b13 + a10 * b14 + a14 * b15
-	selfptr[3]		=	a3  * b0  + a7  * b1  + a11 * b2  + a15 * b3
-	selfptr[7]		=	a3  * b4  + a7  * b5  + a11 * b6  + a15 * b7
-	selfptr[11]	=	a3  * b8  + a7  * b9  + a11 * b10 + a15 * b11
-	selfptr[15]	=	a3  * b12 + a7  * b13 + a11 * b14 + a15 * b15
---]]
-	return self
+--DEBUG:assert.eq(self.dims[1], self.dims[2])
+	-- with temp vars ... any performance diff?
+	local <?=range(0,volume-1):mapi(function(i) return 'a'..i end):concat', '
+		?> = <?=range(0,volume-1):mapi(function(i) return 'aptr['..i..']' end):concat', '?>
+	local <?=range(0,volume-1):mapi(function(i) return 'b'..i end):concat', '
+		?> = <?=range(0,volume-1):mapi(function(i) return 'bptr['..i..']' end):concat', '?>
+<?
+-- c_ij = a_ik b_kj
+
+assert.len(dims, 2)
+assert.eq(dims[1], dims[2])
+
+for i=0,dims[1]-1 do
+	for j=0,dims[2]-1 do
+?>	selfptr[<?=ofs(i,j)?>] = <?
+		for k=0,dims[1]-1 do		-- sum dims is dims[1] or dims[2] since this is for square mat mult
+?><?= k==0 and '' or ' + '?>a<?=ofs(i,k)?> * b<?=ofs(k,j)?><?
+		end
+?>
+<?	end
+end
+?>	return self
 end
 
 -- another optimized mul - this for vectors
@@ -75,56 +70,65 @@ function cl:mul4x4v4(x,y,z,w)
 	local selfptr = self.ptr
 	w = w or 1
 	return
-		selfptr[0] * x + selfptr[4] * y + selfptr[8] * z + selfptr[12] * w,
-		selfptr[1] * x + selfptr[5] * y + selfptr[9] * z + selfptr[13] * w,
-		selfptr[2] * x + selfptr[6] * y + selfptr[10] * z + selfptr[14] * w,
-		selfptr[3] * x + selfptr[7] * y + selfptr[11] * z + selfptr[15] * w
+<?
+local vars = {'x','y','z','w'}
+for i=0,dims[1]-1 do
+?>		<?
+	for j=0,dims[2]-1 do
+?><?=j==0 and '' or ' + '?>selfptr[<?=ofs(i,j)?>] * <?=vars[1+j]?><?
+	end
+?><?=i < dims[1]-1 and ',' or ''?>
+<?
+end
+?>
 end
 
 function cl:setIdent()
 	local selfptr = self.ptr
-	if self.ctype == float then
-		return self:copy(ident)
-	end
-	selfptr[0],  selfptr[1],  selfptr[2],  selfptr[3]  = 1, 0, 0, 0
-	selfptr[4],  selfptr[5],  selfptr[6],  selfptr[7]  = 0, 1, 0, 0
-	selfptr[8],  selfptr[9],  selfptr[10], selfptr[11] = 0, 0, 1, 0
-	selfptr[12], selfptr[13], selfptr[14], selfptr[15] = 0, 0, 0, 1
-	return self
+<?
+assert.len(dims, 2)
+for i=0,dims[1]-1 do
+	for j=0,dims[2]-1 do
+?>	selfptr[<?=ofs(i,j)?>] = <?=i==j and '1' or '0'?>
+<?	end
+end
+?>	return self
 end
 
 function cl:setOrtho(l,r,b,t,n,f)
 --DEBUG:assert.eq(#self.dims, 2)
---DEBUG:assert.eq(self.dims[1], 4)
---DEBUG:assert.eq(self.dims[2], 4)
+--DEBUG:assert.ge(self.dims[1], 4)
+--DEBUG:assert.ge(self.dims[2], 4)
+	local selfptr = self.ptr
 	n = n or -1000
 	f = f or 1000
 	local invdx = 1 / (r - l)
 	local invdy = 1 / (t - b)
 	local invdz = 1 / (f - n)
-	self.ptr[0] = 2 * invdx
-	self.ptr[4] = 0
-	self.ptr[8] = 0
-	self.ptr[12] = -(r + l) * invdx
-	self.ptr[1] = 0
-	self.ptr[5] = 2 * invdy
-	self.ptr[9] = 0
-	self.ptr[13] = -(t + b) * invdy
-	self.ptr[2] = 0
-	self.ptr[6] = 0
-	self.ptr[10] = -2 * invdz
-	self.ptr[14] = -(f + n) * invdz
-	self.ptr[3] = 0
-	self.ptr[7] = 0
-	self.ptr[11] = 0
-	self.ptr[15] = 1
+	selfptr[<?=ofs(0,0)?>] = 2 * invdx
+	selfptr[<?=ofs(0,1)?>] = 0
+	selfptr[<?=ofs(0,2)?>] = 0
+	selfptr[<?=ofs(0,3)?>] = -(r + l) * invdx
+	selfptr[<?=ofs(1,0)?>] = 0
+	selfptr[<?=ofs(1,1)?>] = 2 * invdy
+	selfptr[<?=ofs(1,2)?>] = 0
+	selfptr[<?=ofs(1,3)?>] = -(t + b) * invdy
+	selfptr[<?=ofs(2,0)?>] = 0
+	selfptr[<?=ofs(2,1)?>] = 0
+	selfptr[<?=ofs(2,2)?>] = -2 * invdz
+	selfptr[<?=ofs(2,3)?>] = -(f + n) * invdz
+	selfptr[<?=ofs(3,0)?>] = 0
+	selfptr[<?=ofs(3,1)?>] = 0
+	selfptr[<?=ofs(3,2)?>] = 0
+	selfptr[<?=ofs(3,3)?>] = 1
 	return self
 end
 
 function cl:applyOrtho(l,r,b,t,n,f)
 --DEBUG:assert.eq(#self.dims, 2)
---DEBUG:assert.eq(self.dims[1], 4)
---DEBUG:assert.eq(self.dims[2], 4)
+--DEBUG:assert.ge(self.dims[1], 4)
+--DEBUG:assert.ge(self.dims[2], 4)
+	local selfptr = self.ptr
 	n = n or -1000
 	f = f or 1000
 	local invdx = 1 / (r - l)
@@ -136,119 +140,132 @@ function cl:applyOrtho(l,r,b,t,n,f)
 	local rhs13 = -(t + b) * invdy
 	local rhs22 = -2 * invdz
 	local rhs23 = -(f + n) * invdz
-	local n00 = self.ptr[0] * rhs00
-	local n01 = self.ptr[4] * rhs11
-	local n02 = self.ptr[8] * rhs22
-	local n03 = self.ptr[0] * rhs03 + self.ptr[4] * rhs13 + self.ptr[8] * rhs23 + self.ptr[12]
-	local n10 = self.ptr[1] * rhs00
-	local n11 = self.ptr[5] * rhs11
-	local n12 = self.ptr[9] * rhs22
-	local n13 = self.ptr[1] * rhs03 + self.ptr[5] * rhs13 + self.ptr[9] * rhs23 + self.ptr[13]
-	local n20 = self.ptr[2] * rhs00
-	local n21 = self.ptr[6] * rhs11
-	local n22 = self.ptr[10] * rhs22
-	local n23 = self.ptr[2] * rhs03 + self.ptr[6] * rhs13 + self.ptr[10] * rhs23 + self.ptr[14]
-	local n30 = self.ptr[3] * rhs00
-	local n31 = self.ptr[7] * rhs11
-	local n32 = self.ptr[11] * rhs22
-	local n33 = self.ptr[3] * rhs03 + self.ptr[7] * rhs13 + self.ptr[11] * rhs23 + self.ptr[15]
-	self.ptr[0] = n00
-	self.ptr[4] = n01
-	self.ptr[8] = n02
-	self.ptr[12] = n03
-	self.ptr[1] = n10
-	self.ptr[5] = n11
-	self.ptr[9] = n12
-	self.ptr[13] = n13
-	self.ptr[2] = n20
-	self.ptr[6] = n21
-	self.ptr[10] = n22
-	self.ptr[14] = n23
-	self.ptr[3] = n30
-	self.ptr[7] = n31
-	self.ptr[11] = n32
-	self.ptr[15] = n33
+	local n00 = selfptr[<?=ofs(0,0)?>] * rhs00
+	local n01 = selfptr[<?=ofs(0,1)?>] * rhs11
+	local n02 = selfptr[<?=ofs(0,2)?>] * rhs22
+	local n03 =
+		  selfptr[<?=ofs(0,0)?>] * rhs03
+		+ selfptr[<?=ofs(0,1)?>] * rhs13
+		+ selfptr[<?=ofs(0,2)?>] * rhs23
+		+ selfptr[<?=ofs(0,3)?>]
+	local n10 = selfptr[<?=ofs(1,0)?>] * rhs00
+	local n11 = selfptr[<?=ofs(1,1)?>] * rhs11
+	local n12 = selfptr[<?=ofs(1,2)?>] * rhs22
+	local n13 =
+		  selfptr[<?=ofs(1,0)?>] * rhs03
+		+ selfptr[<?=ofs(1,1)?>] * rhs13
+		+ selfptr[<?=ofs(1,2)?>] * rhs23
+		+ selfptr[<?=ofs(1,3)?>]
+	local n20 = selfptr[<?=ofs(2,0)?>] * rhs00
+	local n21 = selfptr[<?=ofs(2,1)?>] * rhs11
+	local n22 = selfptr[<?=ofs(2,2)?>] * rhs22
+	local n23 =
+		  selfptr[<?=ofs(2,0)?>] * rhs03
+		+ selfptr[<?=ofs(2,1)?>] * rhs13
+		+ selfptr[<?=ofs(2,2)?>] * rhs23
+		+ selfptr[<?=ofs(2,3)?>]
+	local n30 = selfptr[<?=ofs(3,0)?>] * rhs00
+	local n31 = selfptr[<?=ofs(3,1)?>] * rhs11
+	local n32 = selfptr[<?=ofs(3,2)?>] * rhs22
+	local n33 =
+		  selfptr[<?=ofs(3,0)?>] * rhs03
+		+ selfptr[<?=ofs(3,1)?>] * rhs13
+		+ selfptr[<?=ofs(3,2)?>] * rhs23
+		+ selfptr[<?=ofs(3,3)?>]
+<?
+for i=0,dims[1]-1 do
+	for j=0,dims[2]-1 do
+?>	selfptr[<?=ofs(i,j)?>] = n<?=i?><?=j?>
+<?	end
+end
+?>	return self
 end
 
 function cl:setFrustum(l,r,b,t,n,f)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
+	local selfptr = self.ptr
 	n = n or .1
 	f = f or 1000
 	local invdx = 1 / (r - l)
 	local invdy = 1 / (t - b)
 	local invdz = 1 / (f - n)
-	self.ptr[0] = 2 * n * invdx
-	self.ptr[4] = 0
-	self.ptr[8] = (r + l) * invdx
-	self.ptr[12] = 0
-	self.ptr[1] = 0
-	self.ptr[5] = 2 * n * invdy
-	self.ptr[9] = (t + b) * invdy
-	self.ptr[13] = 0
-	self.ptr[2] = 0
-	self.ptr[6] = 0
-	self.ptr[10] = -(f + n) * invdz
-	self.ptr[14] = -2 * f * n * invdz
-	self.ptr[3] = 0
-	self.ptr[7] = 0
-	self.ptr[11] = -1
-	self.ptr[15] = 0
+	selfptr[<?=ofs(0,0)?>] = 2 * n * invdx
+	selfptr[<?=ofs(0,1)?>] = 0
+	selfptr[<?=ofs(0,2)?>] = (r + l) * invdx
+	selfptr[<?=ofs(0,3)?>] = 0
+	selfptr[<?=ofs(1,0)?>] = 0
+	selfptr[<?=ofs(1,1)?>] = 2 * n * invdy
+	selfptr[<?=ofs(1,2)?>] = (t + b) * invdy
+	selfptr[<?=ofs(1,3)?>] = 0
+	selfptr[<?=ofs(2,0)?>] = 0
+	selfptr[<?=ofs(2,1)?>] = 0
+	selfptr[<?=ofs(2,2)?>] = -(f + n) * invdz
+	selfptr[<?=ofs(2,3)?>] = -2 * f * n * invdz
+	selfptr[<?=ofs(3,0)?>] = 0
+	selfptr[<?=ofs(3,1)?>] = 0
+	selfptr[<?=ofs(3,2)?>] = -1
+	selfptr[<?=ofs(3,3)?>] = 0
 	return self
 end
 function cl:applyFrustum(l,r,b,t,n,f)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
+	local selfptr = self.ptr
 	n = n or .1
 	f = f or 1000
 	local invdx = 1 / (r - l)
 	local invdy = 1 / (t - b)
 	local invdz = 1 / (f - n)
 
-	local rhs0 = 2 * n * invdx
-	local rhs8 = (r + l) * invdx
-	local rhs5 = 2 * n * invdy
-	local rhs9 = (t + b) * invdy
-	local rhs10 = -(f + n) * invdz
-	local rhs14 = -2 * f * n * invdz
+	local rhs00 = 2 * n * invdx
+	local rhs02 = (r + l) * invdx
+	local rhs11 = 2 * n * invdy
+	local rhs12 = (t + b) * invdy
+	local rhs22 = -(f + n) * invdz
+	local rhs23 = -2 * f * n * invdz
 
-	local new0 = self.ptr[0] * rhs0
-	local new4 = self.ptr[4] * rhs5
-	local new8 = self.ptr[0] * rhs8 + self.ptr[4] * rhs9 + self.ptr[8] * rhs10 - self.ptr[12]
-	local new12 = self.ptr[8] * rhs14
-	local new1 = self.ptr[1] * rhs0
-	local new5 = self.ptr[5] * rhs5
-	local new9 = self.ptr[1] * rhs8 + self.ptr[5] * rhs9 + self.ptr[9] * rhs10 - self.ptr[13]
-	local new13 = self.ptr[9] * rhs14
-	local new2 = self.ptr[2] * rhs0
-	local new6 = self.ptr[6] * rhs5
-	local new10 = self.ptr[2] * rhs8 + self.ptr[6] * rhs9 + self.ptr[10] * rhs10 - self.ptr[14]
-	local new14 = self.ptr[10] * rhs14
-	local new3 = self.ptr[3] * rhs0
-	local new7 = self.ptr[7] * rhs5
-	local new11 = self.ptr[3] * rhs8 + self.ptr[7] * rhs9 + self.ptr[11] * rhs10 - self.ptr[15]
-	local new15 = self.ptr[11] * rhs14
-
-	self.ptr[0] = new0
-	self.ptr[4] = new4
-	self.ptr[8] = new8
-	self.ptr[12] = new12
-	self.ptr[1] = new1
-	self.ptr[5] = new5
-	self.ptr[9] = new9
-	self.ptr[13] = new13
-	self.ptr[2] = new2
-	self.ptr[6] = new6
-	self.ptr[10] = new10
-	self.ptr[14] = new14
-	self.ptr[3] = new3
-	self.ptr[7] = new7
-	self.ptr[11] = new11
-	self.ptr[15] = new15
+	local n00 = selfptr[<?=ofs(0,0)?>] * rhs00
+	local n01 = selfptr[<?=ofs(0,1)?>] * rhs11
+	local n02 =
+		  selfptr[<?=ofs(0,0)?>] * rhs02
+		+ selfptr[<?=ofs(0,1)?>] * rhs12
+		+ selfptr[<?=ofs(0,2)?>] * rhs22
+		- selfptr[<?=ofs(0,3)?>]
+	local n03 = selfptr[<?=ofs(0,2)?>] * rhs23
+	local n10 = selfptr[<?=ofs(1,0)?>] * rhs00
+	local n11 = selfptr[<?=ofs(1,1)?>] * rhs11
+	local n12 =
+		  selfptr[<?=ofs(1,0)?>] * rhs02
+		+ selfptr[<?=ofs(1,1)?>] * rhs12
+		+ selfptr[<?=ofs(1,2)?>] * rhs22
+		- selfptr[<?=ofs(1,3)?>]
+	local n13 = selfptr[<?=ofs(1,2)?>] * rhs23
+	local n20 = selfptr[<?=ofs(2,0)?>] * rhs00
+	local n21 = selfptr[<?=ofs(2,1)?>] * rhs11
+	local n22 =
+		  selfptr[<?=ofs(2,0)?>] * rhs02
+		+ selfptr[<?=ofs(2,1)?>] * rhs12
+		+ selfptr[<?=ofs(2,2)?>] * rhs22
+		- selfptr[<?=ofs(2,3)?>]
+	local n23 = selfptr[<?=ofs(2,2)?>] * rhs23
+	local n30 = selfptr[<?=ofs(3,0)?>] * rhs00
+	local n31 = selfptr[<?=ofs(3,1)?>] * rhs11
+	local n32 =
+		  selfptr[<?=ofs(3,0)?>] * rhs02
+		+ selfptr[<?=ofs(3,1)?>] * rhs12
+		+ selfptr[<?=ofs(3,2)?>] * rhs22
+		- selfptr[<?=ofs(3,3)?>]
+	local n33 = selfptr[<?=ofs(3,2)?>] * rhs23
+<?
+for i=0,dims[1]-1 do
+	for j=0,dims[2]-1 do
+?>	selfptr[<?=ofs(i,j)?>] = n<?=i?><?=j?>
+<?	end
+end
+?>	return self
 end
 
 -- http://iphonedevelopment.blogspot.com/2008/12/glulookat.html?m=1
@@ -273,26 +290,26 @@ function cl:setLookAt(ex,ey,ez,cx,cy,cz,upx,upy,upz)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
 	local forwardx, forwardy, forwardz = normalize(cx-ex, cy-ey, cz-ez)
 	local sidex, sidey, sidez = normalize(cross(forwardx, forwardy, forwardz, upx, upy, upz))
 	upx, upy, upz = normalize(cross(sidex, sidey, sidez, forwardx, forwardy, forwardz))
-	self.ptr[0] = sidex
-	self.ptr[4] = sidey
-	self.ptr[8] = sidez
-	self.ptr[12] = 0
-	self.ptr[1] = upx
-	self.ptr[5] = upy
-	self.ptr[9] = upz
-	self.ptr[13] = 0
-	self.ptr[2] = -forwardx
-	self.ptr[6] = -forwardy
-	self.ptr[10] = -forwardz
-	self.ptr[14] = 0
-	self.ptr[3] = 0
-	self.ptr[7] = 0
-	self.ptr[11] = 0
-	self.ptr[15] = 1
+	local selfptr = self.ptr
+	selfptr[<?=ofs(0,0)?>] = sidex
+	selfptr[<?=ofs(0,1)?>] = sidey
+	selfptr[<?=ofs(0,2)?>] = sidez
+	selfptr[<?=ofs(0,3)?>] = 0
+	selfptr[<?=ofs(1,0)?>] = upx
+	selfptr[<?=ofs(1,1)?>] = upy
+	selfptr[<?=ofs(1,2)?>] = upz
+	selfptr[<?=ofs(1,3)?>] = 0
+	selfptr[<?=ofs(2,0)?>] = -forwardx
+	selfptr[<?=ofs(2,1)?>] = -forwardy
+	selfptr[<?=ofs(2,2)?>] = -forwardz
+	selfptr[<?=ofs(2,3)?>] = 0
+	selfptr[<?=ofs(3,0)?>] = 0
+	selfptr[<?=ofs(3,1)?>] = 0
+	selfptr[<?=ofs(3,2)?>] = 0
+	selfptr[<?=ofs(3,3)?>] = 1
 	return self:applyTranslate(-ex, -ey, -ez)
 end
 -- TODO optimize the in-place apply instead of this slow crap:
@@ -306,79 +323,68 @@ function cl:setRotateCosSinUnit(c, s, x, y, z)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
 	local ic = 1 - c
-	self.ptr[0] = c + x*x*ic
-	self.ptr[4] = x*y*ic - z*s
-	self.ptr[8] = x*z*ic + y*s
-	self.ptr[12] = 0
-	self.ptr[1] = x*y*ic + z*s
-	self.ptr[5] = c + y*y*ic
-	self.ptr[9] = y*z*ic - x*s
-	self.ptr[13] = 0
-	self.ptr[2] = x*z*ic - y*s
-	self.ptr[6] = y*z*ic + x*s
-	self.ptr[10] = c + z*z*ic
-	self.ptr[14] = 0
-	self.ptr[3] = 0
-	self.ptr[7] = 0
-	self.ptr[11] = 0
-	self.ptr[15] = 1
+	local selfptr = self.ptr
+	selfptr[<?=ofs(0,0)?>] = c + x*x*ic
+	selfptr[<?=ofs(0,1)?>] = x*y*ic - z*s
+	selfptr[<?=ofs(0,2)?>] = x*z*ic + y*s
+	selfptr[<?=ofs(0,3)?>] = 0
+	selfptr[<?=ofs(1,0)?>] = x*y*ic + z*s
+	selfptr[<?=ofs(1,1)?>] = c + y*y*ic
+	selfptr[<?=ofs(1,2)?>] = y*z*ic - x*s
+	selfptr[<?=ofs(1,3)?>] = 0
+	selfptr[<?=ofs(2,0)?>] = x*z*ic - y*s
+	selfptr[<?=ofs(2,1)?>] = y*z*ic + x*s
+	selfptr[<?=ofs(2,2)?>] = c + z*z*ic
+	selfptr[<?=ofs(2,3)?>] = 0
+	selfptr[<?=ofs(3,0)?>] = 0
+	selfptr[<?=ofs(3,1)?>] = 0
+	selfptr[<?=ofs(3,2)?>] = 0
+	selfptr[<?=ofs(3,3)?>] = 1
 	return self
 end
 function cl:applyRotateCosSinUnit(c, s, x, y, z)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
+	local selfptr = self.ptr
+
+<?
+for i=0,3 do
+	for j=0,2 do
+?>	local a<?=i?><?=j?> = selfptr[<?=ofs(i,j)?>]
+<?	end
+end
+?>
+
 	local ic = 1 - c
-	local a0 = self.ptr[0]
-	local a1 = self.ptr[1]
-	local a2 = self.ptr[2]
-	local a3 = self.ptr[3]
-	local a4 = self.ptr[4]
-	local a5 = self.ptr[5]
-	local a6 = self.ptr[6]
-	local a7 = self.ptr[7]
-	local a8 = self.ptr[8]
-	local a9 = self.ptr[9]
-	local a10 = self.ptr[10]
-	local a11 = self.ptr[11]
+	local b00 = c + x*x*ic
+	local b01 = x*y*ic - z*s
+	local b02 = x*z*ic + y*s
+	local b10 = x*y*ic + z*s
+	local b11 = c + y*y*ic
+	local b12 = y*z*ic - x*s
+	local b20 = x*z*ic - y*s
+	local b21 = y*z*ic + x*s
+	local b22 = c + z*z*ic
 
-	local b0 = c + x*x*ic
-	local b4 = x*y*ic - z*s
-	local b8 = x*z*ic + y*s
-	local b1 = x*y*ic + z*s
-	local b5 = c + y*y*ic
-	local b9 = y*z*ic - x*s
-	local b2 = x*z*ic - y*s
-	local b6 = y*z*ic + x*s
-	local b10 = c + z*z*ic
-
-	self.ptr[0] = a0 * b0 + a4 * b1 + a8 * b2
-	self.ptr[1] = a1 * b0 + a5 * b1 + a9 * b2
-	self.ptr[2] = a2 * b0 + a6 * b1 + a10 * b2
-	self.ptr[3] = a3 * b0 + a7 * b1 + a11 * b2
-	self.ptr[4] = a0 * b4 + a4 * b5 + a8 * b6
-	self.ptr[5] = a1 * b4 + a5 * b5 + a9 * b6
-	self.ptr[6] = a2 * b4 + a6 * b5 + a10 * b6
-	self.ptr[7] = a3 * b4 + a7 * b5 + a11 * b6
-	self.ptr[8] = a0 * b8 + a4 * b9 + a8 * b10
-	self.ptr[9] = a1 * b8 + a5 * b9 + a9 * b10
-	self.ptr[10] = a2 * b8 + a6 * b9 + a10 * b10
-	self.ptr[11] = a3 * b8 + a7 * b9 + a11 * b10
-
-	return self
+<?
+for i=0,3 do
+	for j=0,2 do
+?>	selfptr[<?=ofs(i,j)?>] = <?
+		for k=0,2 do
+?><?= k==0 and '' or ' + '?>a<?=i..k?> * b<?=k..j?><?
+		end
+?>
+<?	end
+end
+?>	return self
 end
 
 -- axis is optional
 -- if axis is not provided or if it is near-zero length, defaults to 0,0,1
 function cl:setRotateCosSin(c, s, x, y, z)
 	if not x then x,y,z = 0,0,1 end
---DEBUG:assert.eq(#self.dims, 2)
---DEBUG:assert.eq(self.dims[1], 4)
---DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
 	local l = math.sqrt(x*x + y*y + z*z)
 	if l < 1e-20 then
 		x=1
@@ -393,10 +399,6 @@ function cl:setRotateCosSin(c, s, x, y, z)
 	return self:setRotateCosSinUnit(c, s, x, y, z)
 end
 function cl:applyRotateCosSin(c, s, x, y, z)
---DEBUG:assert.eq(#self.dims, 2)
---DEBUG:assert.eq(self.dims[1], 4)
---DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
 	if not x then x,y,z = 0,0,1 end
 	local l = math.sqrt(x*x + y*y + z*z)
 	if l < 1e-20 then
@@ -420,96 +422,77 @@ function cl:applyRotate(radians, ...)
 end
 
 function cl:setScale(x,y,z)
-	x = x or 1
-	y = y or 1
-	z = z or 1
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
-	self.ptr[0] = x
-	self.ptr[1] = 0
-	self.ptr[2] = 0
-	self.ptr[3] = 0
-	self.ptr[4] = 0
-	self.ptr[5] = y
-	self.ptr[6] = 0
-	self.ptr[7] = 0
-	self.ptr[8] = 0
-	self.ptr[9] = 0
-	self.ptr[10] = z
-	self.ptr[11] = 0
-	self.ptr[12] = 0
-	self.ptr[13] = 0
-	self.ptr[14] = 0
-	self.ptr[15] = 1
-	return self
+	local selfptr = self.ptr
+	x = x or 1
+	y = y or 1
+	z = z or 1
+<?
+local vars = {'x','y','z'}
+for i=0,3 do
+	for j=0,3 do
+?>	selfptr[<?=ofs(i,j)?>] = <?=i ~= j and '0' or vars[i] or '1'?>
+<?	end
+end
+?>	return self
 end
 function cl:applyScale(x,y,z)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
-	if x then
-		self.ptr[0] = self.ptr[0] * x
-		self.ptr[1] = self.ptr[1] * x
-		self.ptr[2] = self.ptr[2] * x
-		self.ptr[3] = self.ptr[3] * x
-	end
-	if y then
-		self.ptr[4] = self.ptr[4] * y
-		self.ptr[5] = self.ptr[5] * y
-		self.ptr[6] = self.ptr[6] * y
-		self.ptr[7] = self.ptr[7] * y
-	end
-	if z then
-		self.ptr[8] = self.ptr[8] * z
-		self.ptr[9] = self.ptr[9] * z
-		self.ptr[10] = self.ptr[10] * z
-		self.ptr[11] = self.ptr[11] * z
-	end
-	return self
+	local selfptr = self.ptr
+<?
+local vars = {'x','y','z'}
+for j=0,2 do
+	local var = vars[j+1]
+?>	if <?=var?> then
+<?	for i=0,3 do
+?>		selfptr[<?=ofs(i,j)?>] = selfptr[<?=ofs(i,j)?>] * <?=var?>
+<?	end
+?>	end
+<?
+end
+?>	return self
 end
 
 function cl:setTranslate(x,y,z)
-	x = x or 0
-	y = y or 0
-	z = z or 0
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
-	self.ptr[0] = 1
-	self.ptr[1] = 0
-	self.ptr[2] = 0
-	self.ptr[3] = 0
-	self.ptr[4] = 0
-	self.ptr[5] = 1
-	self.ptr[6] = 0
-	self.ptr[7] = 0
-	self.ptr[8] = 0
-	self.ptr[9] = 0
-	self.ptr[10] = 1
-	self.ptr[11] = 0
-	self.ptr[12] = x
-	self.ptr[13] = y
-	self.ptr[14] = z
-	self.ptr[15] = 1
-	return self
+	local selfptr = self.ptr
+	x = x or 0
+	y = y or 0
+	z = z or 0
+<?
+local vars = {'x', 'y', 'z'}
+for i=0,3 do
+	for j=0,3 do
+?>	selfptr[<?=ofs(i,j)?>] = <?=i==j and 1 or j==3 and vars[i+1] or '0'?>
+<?	end
+end
+?>	return self
 end
 function cl:applyTranslate(x,y,z)
-	x = x or 0
-	y = y or 0
-	z = z or 0
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
-	self.ptr[12] = x * self.ptr[0] + y * self.ptr[4] + z * self.ptr[8] + self.ptr[12]
-	self.ptr[13] = x * self.ptr[1] + y * self.ptr[5] + z * self.ptr[9] + self.ptr[13]
-	self.ptr[14] = x * self.ptr[2] + y * self.ptr[6] + z * self.ptr[10] + self.ptr[14]
-	self.ptr[15] = x * self.ptr[3] + y * self.ptr[7] + z * self.ptr[11] + self.ptr[15]
-	return self
+	local selfptr = self.ptr
+<?
+for i=0,3 do
+	for j=0,3 do
+?>	local a<?=i?><?=j?> = selfptr[<?=ofs(i,j)?>]
+<?	end
+end
+?>
+	x = x or 0
+	y = y or 0
+	z = z or 0
+<? for i=0,3 do
+?>	selfptr[<?=ofs(i,3)?>] = a<?=i..0?> * x + a<?=i..1?> * y + a<?=i..2?> * z + a<?=i..3?>
+<? end
+?>	return self
 end
 
 -- based on the mesa impl: https://community.khronos.org/t/glupickmatrix-implementation/72008/2
@@ -541,24 +524,30 @@ function cl:setPerspective(fovy, aspectRatio, zNear, zFar)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
+	local selfptr = self.ptr
 	local radians = math.rad(.5 * fovy)
 	local deltaZ = zFar - zNear
 	local sine = math.sin(radians)
 	if deltaZ == 0 or sine == 0 or aspectRatio == 0 then return self end
 	local cotangent = math.cos(radians) / sine
-	self:setIdent()
-	self.ptr[0 + 4 * 0] = cotangent / aspectRatio
-	self.ptr[1 + 4 * 1] = cotangent
-	self.ptr[2 + 4 * 2] = -(zFar + zNear) / deltaZ
-	self.ptr[2 + 4 * 3] = -1
-	self.ptr[3 + 4 * 2] = -2 * zNear * zFar / deltaZ
-	self.ptr[3 + 4 * 3] = 0
-	return self
+<?
+local mat = {
+	{'cotangent / aspectRatio', '0', '0', '0'},
+	{'0', 'cotangent', '0', '0'},
+	{'0', '0', '-(zFar + zNear) / deltaZ', '-2 * zNear * zFar / deltaZ'},
+	{'0', '0', '-1', '1'},
+}
+for i=0,3 do
+	for j=0,3 do
+?>	selfptr[<?=ofs(i,j)?>] = <?=mat[1+i][1+j]?>
+<?	end
+end
+?>	return self
 end
 function cl:applyPerspective(...)
 	return self:mul4x4(
 		self,
-		cl({4, 4}, float):zeros():setPerspective(...)
+		metatype():setPerspective(...)
 	)
 end
 
@@ -568,7 +557,6 @@ function cl:inv4x4(src)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
---DEBUG:assert(not self.rowmajor)
 	src = src or self
 	local srcp = src.ptr
 	local a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15

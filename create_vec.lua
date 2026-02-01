@@ -14,6 +14,7 @@ make everything inlined/unrolled
 
 local ffi = require 'ffi'
 local table = require 'ext.table'
+local range = require 'ext.range'
 local op = require 'ext.op'
 local assert = require 'ext.assert'
 local template = require 'template'
@@ -269,7 +270,31 @@ local function matrixInnerRet(a,b,aj,bj)
 	return y
 end
 
+-- row-major, zero-based
+-- such that A.si.sj <=> A.ptr[index(i,j)]
+-- such that C notation is math notation
+-- from (i1,i2,...,in) 0-based
+-- to the offset in ptr[] of the element within the matrix
+local function matrixIndexOffset(a, ...)
+	local dims = a.dims
+	local n = select('#', ...)
+	assert.eq(n, #dims)
+	local j = 0
+	for i,si in ipairs(a.storage) do
+		local si1 = si + 1
+		j = j * dims[si1]
+		j = j + select(si1, ...)
+	end
+	return j
+end
+
 local function matrixGetIndex(a, ...)
+	-- which is faster?
+	-- [[ for-loop but single access
+	return a.ptr[a:indexOffset(...)]
+	--]]
+	--[[ multiple access tail call / no for-loop
+	-- TODO make this respect .storage
 	local n = select('#', ...)
 	assert.gt(n, 0)
 	if n == 1 then
@@ -277,9 +302,15 @@ local function matrixGetIndex(a, ...)
 	else
 		return matrixGetIndex(a.s[...], select(2, ...))
 	end
+	--]]
 end
 
 local function matrixSetIndex(a, x, ...)
+	-- which is faster?
+	-- [[ for-loop but single access
+	a.ptr[a:indexOffset(...)] = x
+	--]]
+	--[[ multiple access tail call / no for-loop
 	local n = select('#', ...)
 	assert.gt(n, 0)
 	if n == 1 then
@@ -287,6 +318,7 @@ local function matrixSetIndex(a, x, ...)
 	else
 		return matrixSetIndex(a.s[...], x, select(2, ...))
 	end
+	--]]
 end
 
 --[[
@@ -297,6 +329,18 @@ args:
 	fields = (optional) list of fields to use.  default = xyzw.
 	suffix = (optional) suffix of classname.  defaults are above.  not used if vectype is provided.
 	classCode = (optional) additional functions to put in the metatable
+	storage = (optional) order of index offsetting.
+		col major = n-1..0
+		row major = 0..n-1
+		NOTICE storage affects:
+			- __mul
+			- matrix-multiply
+			- :indexOffset
+			- :get/setIndex
+			storage does not affect:
+			- .x.y.z nested indexing (this is ofc hard-coded to C standard, which is row-major)
+	rowMajor = shorthand for storage 0..n-1
+	colMajor = shorthand for storage n-1..0
 --]]
 local createVecType = function(args)
 --DEBUG:print'create_vec'
@@ -316,6 +360,25 @@ local createVecType = function(args)
 
 	args.dims = table(op.safeindex(ctypemt, 'dims') or {}):append{args.dim}
 --DEBUG:print('', 'dims='..args.dims:concat'x')
+
+	args.rank = #args.dims
+
+	if args.rowMajor then
+		assert(not args.colMajor, "can't use rowMajor and colMajor")
+		assert(not args.storage, "can't use rowMajor and storage")
+		args.storage = range(0,args.rank-1)
+	elseif args.colMajor then
+		assert(not args.storage, "can't use rowMajor and storage")
+		args.storage = range(args.rank-1,0,-1)
+	elseif not args.storage then
+		-- [[ default row-major to match C
+		args.storage = range(0,args.rank-1)
+		--]]
+		--[[ default to col-major to match GLSL
+		args.storage = range(args.rank-1,0,-1)
+		--]]
+	end
+	assert.len(args.storage, args.rank)
 
 	-- me thinking about caching types to prevent duplicate type-generation for when I need to create arbitrary-typed results in my math operations
 	-- but I won't want to cache non-vec classes that use this, such as box, plane, quat ...
@@ -342,8 +405,8 @@ local createVecType = function(args)
 	-- handoff to code's env
 	args.matrixInnerRet = matrixInnerRet
 	args.matrixInnerInto = matrixInnerInto
-	args.matrixGetIndex = matrixGetIndex
-	args.matrixSetIndex = matrixSetIndex
+	args.matrixIndexOffset = matrixIndexOffset
+	args.args = args
 
 	-- cuz I am tired of syntax highlighting being missing, and having to copy through scope so many times ...
 	args.modifyMetatable = function(cl)
@@ -351,10 +414,12 @@ local createVecType = function(args)
 		cl.scalarType = args.scalarType
 		cl.dim = args.dim
 		cl.dims = args.dims
-		cl.rank = #cl.dims
+		cl.rank = args.rank
+		cl.storage = args.storage
 		cl.isVector = true
 		cl.getIndex = matrixGetIndex
 		cl.setIndex = matrixSetIndex
+		cl.indexOffset = matrixIndexOffset
 	end
 
 	local code = template([=[
@@ -364,6 +429,7 @@ local args = ...
 local cl = args.cl
 local matrixInnerRet = args.matrixInnerRet
 local matrixInnerInto = args.matrixInnerInto
+local matrixIndexOffset = args.matrixIndexOffset
 
 local metatype
 
@@ -614,6 +680,10 @@ metatype = struct{
 
 return metatype
 ]=], args)
+--DEBUG:print()
+--DEBUG:print(showcode(code))
+--DEBUG:print()
+
 	local func, msg = load(code)
 	if not func then
 		error('\n'..showcode(code)..'\n'..msg)
