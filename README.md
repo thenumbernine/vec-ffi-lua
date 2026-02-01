@@ -6,6 +6,10 @@
 
 2x2-4x4 matrices.
 
+row or col major
+
+arbitrary rank and dimension.
+
 Quaternions.
 
 Bounding Boxes.
@@ -20,6 +24,5 @@ Planes.
 
 ### TODO's
 
-- overhaul, change the typename to `<prim><n>` instead of `vec<n><suffix>`
 - remove the `_t` from the C names, so the Lua and C names match
-- making typenames optional would be nice, and using `ffi.typeof(typedef)`, but becomes a problem with caching types and with recreating duplicate types unnecessarily...
+- making typenames optional would be nice, for a `ffi.typeof(typedef)` option
