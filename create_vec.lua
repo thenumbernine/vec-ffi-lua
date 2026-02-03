@@ -363,20 +363,22 @@ local createVecType = function(args)
 
 	args.rank = #args.dims
 
-	if args.rowMajor then
-		assert(not args.colMajor, "can't use rowMajor and colMajor")
+	--[[
+	our new class is prepending an index on the left.
+	i.e. vec3f is v_i, then vec3x3f is v_ji, where 'j' is the new index and 'i' maps to the inner storage's index
+	setting colMajor means set the left-most index to rank-1
+	setting rowMajor means set the left-most index to 0 and bump all subsequent indexes
+	--]]
+	local prevStorage = op.safeindex(args.ctype, 'storage') or table()
+	if args.colMajor then
+		assert(not args.rowMajor, "can't use rowMajor and colMajor")
 		assert(not args.storage, "can't use rowMajor and storage")
-		args.storage = range(0,args.rank-1)
-	elseif args.colMajor then
+		args.storage = table{args.rank-1}:append(prevStorage)
+	elseif args.rowMajor
+	or not args.storage	-- default to row-major to match C
+	then
 		assert(not args.storage, "can't use rowMajor and storage")
-		args.storage = range(args.rank-1,0,-1)
-	elseif not args.storage then
-		-- [[ default row-major to match C
-		args.storage = range(0,args.rank-1)
-		--]]
-		--[[ default to col-major to match GLSL
-		args.storage = range(args.rank-1,0,-1)
-		--]]
+		args.storage = table{0}:append(prevStorage:mapi(function(i) return i+1 end))
 	end
 	assert.len(args.storage, args.rank)
 
