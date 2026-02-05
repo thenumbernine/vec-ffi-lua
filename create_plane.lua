@@ -17,8 +17,7 @@ return function(args)
 	-- TODO cache these classes somewhere better, where you don't need a new file for each new ctype?
 	-- how about within create_vec?
 	-- (but if you use create_vec, be sure to let it know not to cache this as a vec-type to be used for matrix operations)
-	-- TODO remove the _t ?
-	args.planeType = 'plane'..dim..suffix..'_t'
+	args.planeType = 'plane'..dim..suffix
 	args.vecNPlusOneType = require('vec-ffi.vec'..(dim+1)..suffix)
 
 	args.fields = table{'n', 'negDist'}
