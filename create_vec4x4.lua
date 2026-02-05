@@ -469,11 +469,13 @@ function cl:applyPickMatrix(x, y, dx, dy)
 		:applyTranslate(
 			(1 - 2 * x) / dx,
 			(1 - 2 * y) / dy,
-			0)
+--TODO TODO TODO if I tab these over and run with langfix then mysterious 0009's pop up instead of \t's 
+-- is it a limitation of %q string-escaping?
+0)
 		:applyScale(
-			1 / dx,
-			1 / dy,
-			1)
+1 / dx,
+1 / dy,
+1)
 end
 
 -- based on mesa: https://github.com/Starlink/mesa/blob/master/src/glu/sgi/libutil/project.c
