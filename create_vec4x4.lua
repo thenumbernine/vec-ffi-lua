@@ -10,11 +10,49 @@ return function(args)
 local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local range = require 'ext.range'
+local op = require 'ext.op'
 local volume = dims:product()
+
+-- most these routines assume it is a 4x4 vec-of-vec, or at least that it is square
+assert.len(dims, 2)
+assert.eq(dims[1], dims[2])
 
 -- shorthand
 local function ofs(...)
 	return matrixIndexOffset(args, ...)
+end
+
+-- makes func(0,0) through func(m-1,n-1)
+local function spanfunc(f, m, n)
+	m = m or dims[1]
+	n = n or dims[2]
+	local s = table()
+	for i=0,m-1 do
+		for j=0,n-1 do
+			s:insert((assert(f(i,j))))
+		end
+	end
+	return s:concat', '
+end
+
+-- makes arrayname[ofs(0,0)] through arrayname[ofs(m-1,n-1)]
+local function spanarray(arrayname, ...)
+	return spanfunc(function(i,j)
+		return arrayname..'['..ofs(i,j)..']'
+	end, ...)
+end
+
+-- makes varname_0_0 through varname_(m-1)_(n-1)
+local function spanvar(varname, ...)
+	return spanfunc(function(i,j)
+		return table{varname, i, j}:concat'_'
+	end, ...)
+end
+
+local function spanmat(mat, ...)
+	return spanfunc(function(i,j)
+		return (assert(mat[i+1][j+1]))
+	end, ...)
 end
 ?>
 
@@ -35,7 +73,9 @@ function cl:clone()
 	return metatype(self)
 end
 
--- optimized ... default mul of arbitrary-rank inner-product is verrrry slow
+-- optimized ... default matrix-mul of arbitrary-rank inner-product is verrrry slow
+-- TODO don't override the (slow) vec.mul since it will work on arbitrary rank tensors.
+-- name this somethign else like "matmul"
 function cl:mul4x4(a,b)
 	local aptr = a.ptr
 	local bptr = b.ptr
@@ -43,26 +83,18 @@ function cl:mul4x4(a,b)
 --DEBUG:assert.eq(self.rank, 2)
 --DEBUG:assert.eq(self.dims[1], self.dims[2])
 	-- with temp vars ... any performance diff?
-	local <?=range(0,volume-1):mapi(function(i) return 'a'..i end):concat', '
-		?> = <?=range(0,volume-1):mapi(function(i) return 'aptr['..i..']' end):concat', '?>
-	local <?=range(0,volume-1):mapi(function(i) return 'b'..i end):concat', '
-		?> = <?=range(0,volume-1):mapi(function(i) return 'bptr['..i..']' end):concat', '?>
-<?
--- c_ij = a_ik b_kj
+	local <?=spanvar'a'?> = <?=spanarray'aptr'?>
+	local <?=spanvar'b'?> = <?=spanarray'bptr'?>
 
-assert.len(dims, 2)
-assert.eq(dims[1], dims[2])
-
-for i=0,dims[1]-1 do
-	for j=0,dims[2]-1 do
-?>	selfptr[<?=ofs(i,j)?>] = <?
-		for k=0,dims[1]-1 do		-- sum dims is dims[1] or dims[2] since this is for square mat mult
-?><?= k==0 and '' or ' + '?>a<?=ofs(i,k)?> * b<?=ofs(k,j)?><?
+	-- c_ij = sum_k a_ik * b_kj
+	<?=spanarray'selfptr'?> = <?=spanfunc(function(i,j)
+		local s = table()
+		for k=0,dims[1]-1 do
+			s:insert('a_'..i..'_'..k..' * b_'..k..'_'..j)
 		end
-?>
-<?	end
-end
-?>	return self
+		return s:concat' + '
+	end)?>
+	return self
 end
 
 -- another optimized mul - this for vectors
@@ -71,28 +103,21 @@ function cl:mul4x4v4(x,y,z,w)
 	w = w or 1
 	return
 <?
-local vars = {'x','y','z','w'}
+local vars4 = {'x','y','z','w'}
 for i=0,dims[1]-1 do
-?>		<?
-	for j=0,dims[2]-1 do
-?><?=j==0 and '' or ' + '?>selfptr[<?=ofs(i,j)?>] * <?=vars[1+j]?><?
-	end
+?>		<?=
+	range(0,dims[2]-1):mapi(function(j)
+		return 'selfptr['..ofs(i,j)..'] * '..vars4[1+j]
+	end):concat' + '
 ?><?=i < dims[1]-1 and ',' or ''?>
-<?
-end
+<? end
 ?>
 end
 
 function cl:setIdent()
 	local selfptr = self.ptr
-<?
-assert.len(dims, 2)
-for i=0,dims[1]-1 do
-	for j=0,dims[2]-1 do
-?>	selfptr[<?=ofs(i,j)?>] = <?=i==j and '1' or '0'?>
-<?	end
-end
-?>	return self
+	<?=spanarray'selfptr'?> = <?=spanfunc(function(i,j) return i==j and '1' or '0' end)?>
+	return self
 end
 
 function cl:setOrtho(l,r,b,t,n,f)
@@ -105,22 +130,12 @@ function cl:setOrtho(l,r,b,t,n,f)
 	local invdx = 1 / (r - l)
 	local invdy = 1 / (t - b)
 	local invdz = 1 / (f - n)
-	selfptr[<?=ofs(0,0)?>] = 2 * invdx
-	selfptr[<?=ofs(0,1)?>] = 0
-	selfptr[<?=ofs(0,2)?>] = 0
-	selfptr[<?=ofs(0,3)?>] = -(r + l) * invdx
-	selfptr[<?=ofs(1,0)?>] = 0
-	selfptr[<?=ofs(1,1)?>] = 2 * invdy
-	selfptr[<?=ofs(1,2)?>] = 0
-	selfptr[<?=ofs(1,3)?>] = -(t + b) * invdy
-	selfptr[<?=ofs(2,0)?>] = 0
-	selfptr[<?=ofs(2,1)?>] = 0
-	selfptr[<?=ofs(2,2)?>] = -2 * invdz
-	selfptr[<?=ofs(2,3)?>] = -(f + n) * invdz
-	selfptr[<?=ofs(3,0)?>] = 0
-	selfptr[<?=ofs(3,1)?>] = 0
-	selfptr[<?=ofs(3,2)?>] = 0
-	selfptr[<?=ofs(3,3)?>] = 1
+	<?=spanarray'selfptr'?> = <?=spanmat{
+		{'2 * invdx', '0', '0', '-(r + l) * invdx'},
+		{'0', '2 * invdy', '0', '-(t + b) * invdy'},
+		{'0', '0', '-2 * invdz', '-(f + n) * invdz'},
+		{'0', '0', '0', '1'},
+	}?>
 	return self
 end
 
@@ -140,45 +155,40 @@ function cl:applyOrtho(l,r,b,t,n,f)
 	local rhs13 = -(t + b) * invdy
 	local rhs22 = -2 * invdz
 	local rhs23 = -(f + n) * invdz
-	local n00 = selfptr[<?=ofs(0,0)?>] * rhs00
-	local n01 = selfptr[<?=ofs(0,1)?>] * rhs11
-	local n02 = selfptr[<?=ofs(0,2)?>] * rhs22
-	local n03 =
+	local n_0_0 = selfptr[<?=ofs(0,0)?>] * rhs00
+	local n_0_1 = selfptr[<?=ofs(0,1)?>] * rhs11
+	local n_0_2 = selfptr[<?=ofs(0,2)?>] * rhs22
+	local n_0_3 =
 		  selfptr[<?=ofs(0,0)?>] * rhs03
 		+ selfptr[<?=ofs(0,1)?>] * rhs13
 		+ selfptr[<?=ofs(0,2)?>] * rhs23
 		+ selfptr[<?=ofs(0,3)?>]
-	local n10 = selfptr[<?=ofs(1,0)?>] * rhs00
-	local n11 = selfptr[<?=ofs(1,1)?>] * rhs11
-	local n12 = selfptr[<?=ofs(1,2)?>] * rhs22
-	local n13 =
+	local n_1_0 = selfptr[<?=ofs(1,0)?>] * rhs00
+	local n_1_1 = selfptr[<?=ofs(1,1)?>] * rhs11
+	local n_1_2 = selfptr[<?=ofs(1,2)?>] * rhs22
+	local n_1_3 =
 		  selfptr[<?=ofs(1,0)?>] * rhs03
 		+ selfptr[<?=ofs(1,1)?>] * rhs13
 		+ selfptr[<?=ofs(1,2)?>] * rhs23
 		+ selfptr[<?=ofs(1,3)?>]
-	local n20 = selfptr[<?=ofs(2,0)?>] * rhs00
-	local n21 = selfptr[<?=ofs(2,1)?>] * rhs11
-	local n22 = selfptr[<?=ofs(2,2)?>] * rhs22
-	local n23 =
+	local n_2_0 = selfptr[<?=ofs(2,0)?>] * rhs00
+	local n_2_1 = selfptr[<?=ofs(2,1)?>] * rhs11
+	local n_2_2 = selfptr[<?=ofs(2,2)?>] * rhs22
+	local n_2_3 =
 		  selfptr[<?=ofs(2,0)?>] * rhs03
 		+ selfptr[<?=ofs(2,1)?>] * rhs13
 		+ selfptr[<?=ofs(2,2)?>] * rhs23
 		+ selfptr[<?=ofs(2,3)?>]
-	local n30 = selfptr[<?=ofs(3,0)?>] * rhs00
-	local n31 = selfptr[<?=ofs(3,1)?>] * rhs11
-	local n32 = selfptr[<?=ofs(3,2)?>] * rhs22
-	local n33 =
+	local n_3_0 = selfptr[<?=ofs(3,0)?>] * rhs00
+	local n_3_1 = selfptr[<?=ofs(3,1)?>] * rhs11
+	local n_3_2 = selfptr[<?=ofs(3,2)?>] * rhs22
+	local n_3_3 =
 		  selfptr[<?=ofs(3,0)?>] * rhs03
 		+ selfptr[<?=ofs(3,1)?>] * rhs13
 		+ selfptr[<?=ofs(3,2)?>] * rhs23
 		+ selfptr[<?=ofs(3,3)?>]
-<?
-for i=0,dims[1]-1 do
-	for j=0,dims[2]-1 do
-?>	selfptr[<?=ofs(i,j)?>] = n<?=i?><?=j?>
-<?	end
-end
-?>	return self
+	<?=spanarray'selfptr'?> = <?=spanvar'n'?>
+	return self
 end
 
 function cl:setFrustum(l,r,b,t,n,f)
@@ -191,22 +201,12 @@ function cl:setFrustum(l,r,b,t,n,f)
 	local invdx = 1 / (r - l)
 	local invdy = 1 / (t - b)
 	local invdz = 1 / (f - n)
-	selfptr[<?=ofs(0,0)?>] = 2 * n * invdx
-	selfptr[<?=ofs(0,1)?>] = 0
-	selfptr[<?=ofs(0,2)?>] = (r + l) * invdx
-	selfptr[<?=ofs(0,3)?>] = 0
-	selfptr[<?=ofs(1,0)?>] = 0
-	selfptr[<?=ofs(1,1)?>] = 2 * n * invdy
-	selfptr[<?=ofs(1,2)?>] = (t + b) * invdy
-	selfptr[<?=ofs(1,3)?>] = 0
-	selfptr[<?=ofs(2,0)?>] = 0
-	selfptr[<?=ofs(2,1)?>] = 0
-	selfptr[<?=ofs(2,2)?>] = -(f + n) * invdz
-	selfptr[<?=ofs(2,3)?>] = -2 * f * n * invdz
-	selfptr[<?=ofs(3,0)?>] = 0
-	selfptr[<?=ofs(3,1)?>] = 0
-	selfptr[<?=ofs(3,2)?>] = -1
-	selfptr[<?=ofs(3,3)?>] = 0
+	<?=spanarray'selfptr'?> = <?=spanmat{
+		{'2 * n * invdx', '0', '(r + l) * invdx', '0'},
+		{'0', '2 * n * invdy', '(t + b) * invdy', '0'},
+		{'0', '0', '-(f + n) * invdz', '-2 * f * n * invdz'},
+		{'0', '0', '-1', '0'},
+	}?>
 	return self
 end
 function cl:applyFrustum(l,r,b,t,n,f)
@@ -227,45 +227,40 @@ function cl:applyFrustum(l,r,b,t,n,f)
 	local rhs22 = -(f + n) * invdz
 	local rhs23 = -2 * f * n * invdz
 
-	local n00 = selfptr[<?=ofs(0,0)?>] * rhs00
-	local n01 = selfptr[<?=ofs(0,1)?>] * rhs11
-	local n02 =
+	local n_0_0 = selfptr[<?=ofs(0,0)?>] * rhs00
+	local n_0_1 = selfptr[<?=ofs(0,1)?>] * rhs11
+	local n_0_2 =
 		  selfptr[<?=ofs(0,0)?>] * rhs02
 		+ selfptr[<?=ofs(0,1)?>] * rhs12
 		+ selfptr[<?=ofs(0,2)?>] * rhs22
 		- selfptr[<?=ofs(0,3)?>]
-	local n03 = selfptr[<?=ofs(0,2)?>] * rhs23
-	local n10 = selfptr[<?=ofs(1,0)?>] * rhs00
-	local n11 = selfptr[<?=ofs(1,1)?>] * rhs11
-	local n12 =
+	local n_0_3 = selfptr[<?=ofs(0,2)?>] * rhs23
+	local n_1_0 = selfptr[<?=ofs(1,0)?>] * rhs00
+	local n_1_1 = selfptr[<?=ofs(1,1)?>] * rhs11
+	local n_1_2 =
 		  selfptr[<?=ofs(1,0)?>] * rhs02
 		+ selfptr[<?=ofs(1,1)?>] * rhs12
 		+ selfptr[<?=ofs(1,2)?>] * rhs22
 		- selfptr[<?=ofs(1,3)?>]
-	local n13 = selfptr[<?=ofs(1,2)?>] * rhs23
-	local n20 = selfptr[<?=ofs(2,0)?>] * rhs00
-	local n21 = selfptr[<?=ofs(2,1)?>] * rhs11
-	local n22 =
+	local n_1_3 = selfptr[<?=ofs(1,2)?>] * rhs23
+	local n_2_0 = selfptr[<?=ofs(2,0)?>] * rhs00
+	local n_2_1 = selfptr[<?=ofs(2,1)?>] * rhs11
+	local n_2_2 =
 		  selfptr[<?=ofs(2,0)?>] * rhs02
 		+ selfptr[<?=ofs(2,1)?>] * rhs12
 		+ selfptr[<?=ofs(2,2)?>] * rhs22
 		- selfptr[<?=ofs(2,3)?>]
-	local n23 = selfptr[<?=ofs(2,2)?>] * rhs23
-	local n30 = selfptr[<?=ofs(3,0)?>] * rhs00
-	local n31 = selfptr[<?=ofs(3,1)?>] * rhs11
-	local n32 =
+	local n_2_3 = selfptr[<?=ofs(2,2)?>] * rhs23
+	local n_3_0 = selfptr[<?=ofs(3,0)?>] * rhs00
+	local n_3_1 = selfptr[<?=ofs(3,1)?>] * rhs11
+	local n_3_2 =
 		  selfptr[<?=ofs(3,0)?>] * rhs02
 		+ selfptr[<?=ofs(3,1)?>] * rhs12
 		+ selfptr[<?=ofs(3,2)?>] * rhs22
 		- selfptr[<?=ofs(3,3)?>]
-	local n33 = selfptr[<?=ofs(3,2)?>] * rhs23
-<?
-for i=0,dims[1]-1 do
-	for j=0,dims[2]-1 do
-?>	selfptr[<?=ofs(i,j)?>] = n<?=i?><?=j?>
-<?	end
-end
-?>	return self
+	local n_3_3 = selfptr[<?=ofs(3,2)?>] * rhs23
+	<?=spanarray'selfptr'?> = <?=spanvar'n'?>
+	return self
 end
 
 -- http://iphonedevelopment.blogspot.com/2008/12/glulookat.html?m=1
@@ -275,6 +270,7 @@ local function cross(ax,ay,az,bx,by,bz)
 	local cz = ax * by - ay * bx
 	return cx,cy,cz
 end
+
 local function normalize(x,y,z)
 	local m = math.sqrt(x*x + y*y + z*z)
 	if m > 1e-20 then
@@ -282,6 +278,7 @@ local function normalize(x,y,z)
 	end
 	return 1,0,0
 end
+
 -- https://www.khronos.org/opengl/wiki/GluLookAt_code
 -- ex ey ez is where the view is centered (lol not 'center')
 -- cx cy cz is where the view is looking at
@@ -294,22 +291,12 @@ function cl:setLookAt(ex,ey,ez,cx,cy,cz,upx,upy,upz)
 	local sidex, sidey, sidez = normalize(cross(forwardx, forwardy, forwardz, upx, upy, upz))
 	upx, upy, upz = normalize(cross(sidex, sidey, sidez, forwardx, forwardy, forwardz))
 	local selfptr = self.ptr
-	selfptr[<?=ofs(0,0)?>] = sidex
-	selfptr[<?=ofs(0,1)?>] = sidey
-	selfptr[<?=ofs(0,2)?>] = sidez
-	selfptr[<?=ofs(0,3)?>] = 0
-	selfptr[<?=ofs(1,0)?>] = upx
-	selfptr[<?=ofs(1,1)?>] = upy
-	selfptr[<?=ofs(1,2)?>] = upz
-	selfptr[<?=ofs(1,3)?>] = 0
-	selfptr[<?=ofs(2,0)?>] = -forwardx
-	selfptr[<?=ofs(2,1)?>] = -forwardy
-	selfptr[<?=ofs(2,2)?>] = -forwardz
-	selfptr[<?=ofs(2,3)?>] = 0
-	selfptr[<?=ofs(3,0)?>] = 0
-	selfptr[<?=ofs(3,1)?>] = 0
-	selfptr[<?=ofs(3,2)?>] = 0
-	selfptr[<?=ofs(3,3)?>] = 1
+	<?=spanarray'selfptr'?> = <?=spanmat{
+		{'sidex', 'sidey', 'sidez', '0'},
+		{'upx', 'upy', 'upz', '0'},
+		{'-forwardx', '-forwardy', '-forwardz', '0'},
+		{'0', '0', '0', '1'},
+	}?>
 	return self:applyTranslate(-ex, -ey, -ez)
 end
 -- TODO optimize the in-place apply instead of this slow crap:
@@ -318,6 +305,13 @@ function cl:applyLookAt(...)
 	return self:mul4x4(self, tmp:setLookAt(...))
 end
 
+<?
+local rotmat = {
+	{'c + x*x*ic', 'x*y*ic - z*s', 'x*z*ic + y*s'},
+	{'x*y*ic + z*s', 'c + y*y*ic', 'y*z*ic - x*s'},
+	{'x*z*ic - y*s', 'y*z*ic + x*s', 'c + z*z*ic'},
+}
+?>
 -- axis is expected to be unit
 function cl:setRotateCosSinUnit(c, s, x, y, z)
 --DEBUG:assert.eq(#self.dims, 2)
@@ -325,22 +319,9 @@ function cl:setRotateCosSinUnit(c, s, x, y, z)
 --DEBUG:assert.eq(self.dims[2], 4)
 	local ic = 1 - c
 	local selfptr = self.ptr
-	selfptr[<?=ofs(0,0)?>] = c + x*x*ic
-	selfptr[<?=ofs(0,1)?>] = x*y*ic - z*s
-	selfptr[<?=ofs(0,2)?>] = x*z*ic + y*s
-	selfptr[<?=ofs(0,3)?>] = 0
-	selfptr[<?=ofs(1,0)?>] = x*y*ic + z*s
-	selfptr[<?=ofs(1,1)?>] = c + y*y*ic
-	selfptr[<?=ofs(1,2)?>] = y*z*ic - x*s
-	selfptr[<?=ofs(1,3)?>] = 0
-	selfptr[<?=ofs(2,0)?>] = x*z*ic - y*s
-	selfptr[<?=ofs(2,1)?>] = y*z*ic + x*s
-	selfptr[<?=ofs(2,2)?>] = c + z*z*ic
-	selfptr[<?=ofs(2,3)?>] = 0
-	selfptr[<?=ofs(3,0)?>] = 0
-	selfptr[<?=ofs(3,1)?>] = 0
-	selfptr[<?=ofs(3,2)?>] = 0
-	selfptr[<?=ofs(3,3)?>] = 1
+	<?=spanarray'selfptr'?> = <?=spanfunc(function(i,j)
+		return op.safeindex(rotmat, 1+i, 1+j) or (i==j and '1' or '0')
+	end)?>
 	return self
 end
 function cl:applyRotateCosSinUnit(c, s, x, y, z)
@@ -349,69 +330,47 @@ function cl:applyRotateCosSinUnit(c, s, x, y, z)
 --DEBUG:assert.eq(self.dims[2], 4)
 	local selfptr = self.ptr
 
-<?
-for i=0,3 do
-	for j=0,2 do
-?>	local a<?=i?><?=j?> = selfptr[<?=ofs(i,j)?>]
-<?	end
-end
-?>
+	local <?=spanvar'a'?> = <?=spanarray'selfptr'?>
 
 	local ic = 1 - c
-	local b00 = c + x*x*ic
-	local b01 = x*y*ic - z*s
-	local b02 = x*z*ic + y*s
-	local b10 = x*y*ic + z*s
-	local b11 = c + y*y*ic
-	local b12 = y*z*ic - x*s
-	local b20 = x*z*ic - y*s
-	local b21 = y*z*ic + x*s
-	local b22 = c + z*z*ic
-
-<?
-for i=0,3 do
-	for j=0,2 do
-?>	selfptr[<?=ofs(i,j)?>] = <?
-		for k=0,2 do
-?><?= k==0 and '' or ' + '?>a<?=i..k?> * b<?=k..j?><?
-		end
-?>
-<?	end
-end
-?>	return self
+	local <?=spanvar('b',3,3)?> = <?=spanmat(rotmat,3,3)?>
+	<?=spanarray('selfptr', dims[1], 3)?> = <?=spanfunc(function(i,j)
+		return range(0,2):mapi(function(k)
+			return 'a_'..i..'_'..k..' * b_'..k..'_'..j
+		end):concat' + '
+	end, dims[1], 3)?>
+	return self
 end
 
 -- axis is optional
 -- if axis is not provided or if it is near-zero length, defaults to 0,0,1
 function cl:setRotateCosSin(c, s, x, y, z)
-	if not x then x,y,z = 0,0,1 end
-	local l = math.sqrt(x*x + y*y + z*z)
-	if l < 1e-20 then
-		x=1
-		y=0
-		z=0
+	local lensq
+	if not x then
+		x,y,z,lensq = 0,0,1,1
 	else
-		local il = 1/l
-		x=x*il
-		y=y*il
-		z=z*il
+		lensq = x*x + y*y + z*z
 	end
-	return self:setRotateCosSinUnit(c, s, x, y, z)
+	if lensq < 1e-10 then
+		return self:setRotateCosSinUnit(c, s, 0, 0, 1)
+	else
+		local invlen = 1/math.sqrt(lensq)
+		return self:setRotateCosSinUnit(c, s, x*invlen, y*invlen, z*invlen)
+	end
 end
 function cl:applyRotateCosSin(c, s, x, y, z)
-	if not x then x,y,z = 0,0,1 end
-	local l = math.sqrt(x*x + y*y + z*z)
-	if l < 1e-20 then
-		x=1
-		y=0
-		z=0
+	local lensq
+	if not x then
+		x,y,z,lensq = 0,0,1,1
 	else
-		local il = 1/l
-		x=x*il
-		y=y*il
-		z=z*il
+		lensq = x*x + y*y + z*z
 	end
-	return self:applyRotateCosSinUnit(c, s, x, y, z)
+	if lensq < 1e-10 then
+		return self:applyRotateCosSinUnit(c, s, 0, 0, 1)
+	else
+		local invlen = 1/math.sqrt(lensq)
+		return self:applyRotateCosSinUnit(c, s, x*invlen, y*invlen, z*invlen)
+	end
 end
 
 function cl:setRotate(radians, ...)
@@ -421,6 +380,10 @@ function cl:applyRotate(radians, ...)
 	return self:applyRotateCosSin(math.cos(radians), math.sin(radians), ...)
 end
 
+<?
+local vars3 = {'x', 'y', 'z'}
+?>
+
 function cl:setScale(x,y,z)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
@@ -429,14 +392,11 @@ function cl:setScale(x,y,z)
 	x = x or 1
 	y = y or 1
 	z = z or 1
-<?
-local vars = {'x','y','z'}
-for i=0,3 do
-	for j=0,3 do
-?>	selfptr[<?=ofs(i,j)?>] = <?=i ~= j and '0' or vars[i] or '1'?>
-<?	end
-end
-?>	return self
+	<?=spanarray'selfptr'?> = <?=spanfunc(function(i,j)
+		if i ~= j then return '0' end
+		return vars3[i] or '1'
+	end)?>
+	return self
 end
 function cl:applyScale(x,y,z)
 --DEBUG:assert.eq(#self.dims, 2)
@@ -444,9 +404,8 @@ function cl:applyScale(x,y,z)
 --DEBUG:assert.eq(self.dims[2], 4)
 	local selfptr = self.ptr
 <?
-local vars = {'x','y','z'}
 for j=0,2 do
-	local var = vars[j+1]
+	local var = vars3[j+1]
 ?>	if <?=var?> then
 <?	for i=0,3 do
 ?>		selfptr[<?=ofs(i,j)?>] = selfptr[<?=ofs(i,j)?>] * <?=var?>
@@ -465,32 +424,30 @@ function cl:setTranslate(x,y,z)
 	x = x or 0
 	y = y or 0
 	z = z or 0
-<?
-local vars = {'x', 'y', 'z'}
-for i=0,3 do
-	for j=0,3 do
-?>	selfptr[<?=ofs(i,j)?>] = <?=i==j and 1 or j==3 and vars[i+1] or '0'?>
-<?	end
-end
-?>	return self
+	<?=spanarray'selfptr'?> = <?=spanfunc(function(i,j)
+		if i==j then return '1' end
+		if j==dims[2]-1 then return vars3[i+1] or '0' end
+		return '0'
+	end)?>
+	return self
 end
 function cl:applyTranslate(x,y,z)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
 --DEBUG:assert.eq(self.dims[2], 4)
 	local selfptr = self.ptr
-<?
-for i=0,3 do
-	for j=0,3 do
-?>	local a<?=i?><?=j?> = selfptr[<?=ofs(i,j)?>]
-<?	end
-end
-?>
+	local <?=spanvar'a'?> = <?=spanarray'selfptr'?>
 	x = x or 0
 	y = y or 0
 	z = z or 0
-<? for i=0,3 do
-?>	selfptr[<?=ofs(i,3)?>] = a<?=i..0?> * x + a<?=i..1?> * y + a<?=i..2?> * z + a<?=i..3?>
+<? for i=0,dims[1]-1 do
+?>	selfptr[<?=ofs(i,dims[2]-1)?>] = <?=range(0,dims[2]-1):mapi(function(j,_,t)
+		local avar = 'a_'..i..'_'..j
+		if j == dims[2]-1 then return avar, #t+1 end	-- b_kj = 1, so return a_ik only
+		local bvar = vars3[1+j]
+		if not bvar then return end	-- b_kj = 0, so return nothing, no entry at all
+		return avar..' * '..bvar, #t+1	-- a_ik * b_kj
+	end):concat' + '?>
 <? end
 ?>	return self
 end
@@ -530,19 +487,13 @@ function cl:setPerspective(fovy, aspectRatio, zNear, zFar)
 	local sine = math.sin(radians)
 	if deltaZ == 0 or sine == 0 or aspectRatio == 0 then return self end
 	local cotangent = math.cos(radians) / sine
-<?
-local mat = {
-	{'cotangent / aspectRatio', '0', '0', '0'},
-	{'0', 'cotangent', '0', '0'},
-	{'0', '0', '-(zFar + zNear) / deltaZ', '-2 * zNear * zFar / deltaZ'},
-	{'0', '0', '-1', '1'},
-}
-for i=0,3 do
-	for j=0,3 do
-?>	selfptr[<?=ofs(i,j)?>] = <?=mat[1+i][1+j]?>
-<?	end
-end
-?>	return self
+	<?=spanarray'selfptr'?> = <?=spanmat{
+		{'cotangent / aspectRatio', '0', '0', '0'},
+		{'0', 'cotangent', '0', '0'},
+		{'0', '0', '-(zFar + zNear) / deltaZ', '-2 * zNear * zFar / deltaZ'},
+		{'0', '0', '-1', '1'},
+	}?>
+	return self
 end
 function cl:applyPerspective(...)
 	return self:mul4x4(
@@ -553,6 +504,7 @@ end
 
 -- calculates the inverse of 'src' or 'self' and stores it in 'self'
 -- https://stackoverflow.com/a/1148405
+-- inv(A^T) = inv(A)^T, so as long as src and dst have same major-ness it shouldn't matter
 function cl:inv4x4(src)
 --DEBUG:assert.eq(#self.dims, 2)
 --DEBUG:assert.eq(self.dims[1], 4)
@@ -597,6 +549,7 @@ function cl:inv4x4(src)
 	return self
 end
 
+-- det(A) = det(A^T) so col vs row major doesn't matter
 function cl.determinant(m)
 	local mp = m.ptr
 	local a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15
@@ -612,9 +565,8 @@ end
 function cl:transpose4x4(src)
 	src = src or self
 	local srcp = src.ptr
-	local dstp = self.ptr
-	dstp[0], dstp[4], dstp[8], dstp[12], dstp[1], dstp[5], dstp[9], dstp[13], dstp[2], dstp[6], dstp[10], dstp[14], dstp[3], dstp[7], dstp[11], dstp[15]
-	= srcp[0], srcp[1], srcp[2], srcp[3], srcp[4], srcp[5], srcp[6], srcp[7], srcp[8], srcp[9], srcp[10], srcp[11], srcp[12], srcp[13], srcp[14], srcp[15]
+	local selfptr = self.ptr
+	<?=spanarray'selfptr'?> = <?=spanfunc(function(i,j) return 'srcp['..ofs(j,i)..']' end)?>
 	return self
 end
 
