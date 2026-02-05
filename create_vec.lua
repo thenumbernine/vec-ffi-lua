@@ -35,14 +35,14 @@ local function setCachedType(dims, scalarType, mt)
 	assert.type(mt, 'cdata')
 	local mtname = op.safeindex(mt, 'name')
 	if not mtname then error("failed to find name for "..tostring(mt)) end
-	local vecname = assert(mtname:match'^(.*)_t$' , "expected vec.*_t")
+	local vecname = assert(mtname:match'^(.*)$' , "expected vec*")
 
 	local scalarFFIType = assert(ffi.typeof(scalarType))
 	local scalarFFIName = assert(tostring(scalarFFIType):match'^ctype<(.*)>$')
 	local suffix = assert.index(suffixes, scalarFFIName)
 	local luaname = 'vec'..dims:concat'x'..suffix
 
-	assert.eq(mtname, luaname..'_t')
+	assert.eq(mtname, luaname)
 
 --DEBUG:print('setCachedType', luaname)
 	package.loaded['vec-ffi.'..luaname] = mt
@@ -325,7 +325,7 @@ end
 args:
 	dim = vector dimension
 	ctype = vector element type
-	vectype = (optional) vector class name.	 default = vec<dim><suffix>_t
+	vectype = (optional) vector class name.	 default = vec<dim><suffix>
 	fields = (optional) list of fields to use.  default = xyzw.
 	suffix = (optional) suffix of classname.  defaults are above.  not used if vectype is provided.
 	classCode = (optional) additional functions to put in the metatable
@@ -396,9 +396,8 @@ local createVecType = function(args)
 --DEBUG:print('', 'suffix='..args.suffix)
 
 		-- TODO should match the cache stuff above
-		-- TODO TODO drop the _t and it's all much easier
 		local nesting = args.dims:concat'x'..args.suffix
-		args.vectype = 'vec'..nesting..'_t'
+		args.vectype = 'vec'..nesting
 --DEBUG:print('making vectype name', args.vectype)
 	end
 

@@ -5,7 +5,7 @@ require 'ext'
 --[[
 do
 	local vec3f = require 'vec-ffi.vec3f'
-	assert.eq(ffi.sizeof'vec3x3f_t', 3*3*4)
+	assert.eq(ffi.sizeof'vec3x3f', 3*3*4)
 
 	local x = vec3f(10,11,12)
 	print(x)
@@ -81,6 +81,6 @@ end
 
 
 require 'vec-ffi'
-assert.eq(ffi.sizeof'vec3b_t', 3)
+assert.eq(ffi.sizeof'vec3b', 3)
 
 print'done'

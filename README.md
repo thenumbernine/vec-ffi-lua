@@ -24,5 +24,4 @@ Planes.
 
 ### TODO's
 
-- remove the `_t` from the C names, so the Lua and C names match
 - making typenames optional would be nice, for a `ffi.typeof(typedef)` option

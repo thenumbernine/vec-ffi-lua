@@ -62,7 +62,7 @@ return function(env)
 				local k = 'vec'..i..'x'..j..suffix
 				env[k] = env[k] or create{
 					dim = i,
-					ctype = 'vec'..j..suffix..'_t',
+					ctype = 'vec'..j..suffix,
 				}
 			end
 		end
