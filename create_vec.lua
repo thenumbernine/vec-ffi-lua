@@ -687,7 +687,8 @@ return metatype
 
 	local func, msg = load(code)
 	if not func then
-		error('\n'..showcode(code)..'\n'..msg)
+		io.stderr:write(showcode(code), '\n')
+		error(msg)
 	end
 	local metatype = func(args)
 	do
