@@ -17,8 +17,7 @@ return function(vectype)
 		suffix = suffix,
 		ctype = ctype,
 		vectype = vectype,
-		-- TODO remove the _t ?
-		boxtype = 'box'..dim..suffix..'_t',
+		boxtype = 'box'..dim..suffix,
 		fields = table{'min', 'max'},
 	}
 
