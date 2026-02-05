@@ -10,7 +10,7 @@ return function(ctype)
 		ctype = ctype,
 
 		-- manually-named vectypes == don't cache this for matrix operations
-		vectype = 'quat'..suffix..'_t',
+		vectype = 'quat'..suffix,
 
 		-- create the 3type associated with our quat 4type
 		vec3require = 'vec-ffi.vec3'..suffix,
@@ -122,7 +122,7 @@ cl.zAxis = function(q, res)
 	return res
 end
 
--- TODO instead of a table-of-vec3_t's, how about a matrix ffi type?
+-- TODO instead of a table-of-vec3's, how about a matrix ffi type?
 cl.toMatrix = function(q, mat)
 	if not mat then mat = {} end
 	mat[1] = metatype.xAxis(q, mat[1])
