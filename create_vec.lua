@@ -288,37 +288,38 @@ local function matrixIndexOffset(a, ...)
 	return j
 end
 
+-- for-loop but single access
 local function matrixGetIndex(a, ...)
-	-- which is faster?
-	-- [[ for-loop but single access
 	return a.ptr[a:indexOffset(...)]
-	--]]
-	--[[ multiple access tail call / no for-loop
-	-- TODO make this respect .storage
+end
+
+-- for-loop but single access
+local function matrixSetIndex(a, x, ...)
+	a.ptr[a:indexOffset(...)] = x
+end
+
+local function matrixGetIndexR(a, ...)
+	-- multiple access tail call / no for-loop
+	-- TODO make this respect .storage (but how? using .storage? using .storageInv?)
 	local n = select('#', ...)
 	assert.gt(n, 0)
 	if n == 1 then
 		return a.s[...]
 	else
-		return matrixGetIndex(a.s[...], select(2, ...))
+		return matrixGetIndexR(a.s[...], select(2, ...))
 	end
-	--]]
 end
 
-local function matrixSetIndex(a, x, ...)
-	-- which is faster?
-	-- [[ for-loop but single access
-	a.ptr[a:indexOffset(...)] = x
-	--]]
-	--[[ multiple access tail call / no for-loop
+-- setter with recursive .s[] dereferencing
+-- multiple access tail call / no for-loop
+local function matrixSetIndexR(a, x, ...)
 	local n = select('#', ...)
 	assert.gt(n, 0)
 	if n == 1 then
 		a.s[...] = x
 	else
-		return matrixSetIndex(a.s[...], x, select(2, ...))
+		return matrixSetIndexR(a.s[...], x, select(2, ...))
 	end
-	--]]
 end
 
 --[[
@@ -420,6 +421,8 @@ local createVecType = function(args)
 		cl.isVector = true
 		cl.getIndex = matrixGetIndex
 		cl.setIndex = matrixSetIndex
+		cl.getIndexR = matrixGetIndexR
+		cl.setIndexR = matrixSetIndexR
 		cl.indexOffset = matrixIndexOffset
 	end
 
@@ -613,11 +616,16 @@ fields:mapi(function(x) return 'a.'..x..' * b.'..x end):concat(' + ')
 
 --[[
 	cl.outer = function(a,b)
-		local resultType = vec<b.type>
-		local result = resultType()
+		local A = ffi.typeof(a)
+		local B = ffi.typeof(b)
+		local result = A:replaceInner(B)()
+
+		-- TODO now we need a scalar-most element iterator
 		for i=0,<?=dim-1?> do
+
 			result.s[i] = a.s[i] * b
 		end
+
 		return result
 	end,
 --]]
