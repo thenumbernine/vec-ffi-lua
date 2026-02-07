@@ -64,6 +64,10 @@ local function modifyMetatable(cl)
 		return self.max - self.min
 	end
 
+	cl.center = function(self)
+		return .5 * (self.max + self.min)
+	end
+
 	-- 'b' is a 'box3', clamps 'self' to be within 'b'
 	cl.clamp = function(self, b)
 		for i=0,dim-1 do
