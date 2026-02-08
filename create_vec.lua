@@ -350,13 +350,13 @@ local createVecType = function(args)
 	assert(args.dim)
 --DEBUG:print('', 'dim='..args.dim)
 	args.ctype = ffi.typeof((assert.index(args, 'ctype')))
---DEBUG:print('', 'ctype='..args.ctype)
+--DEBUG:print('', 'ctype='..tostring(args.ctype))
 
 	args.classCode = args.classCode or ''
 
 	local ctypemt = op.safeindex(args.ctype, 'metatable')
 	args.scalarType = op.safeindex(ctypemt, 'scalarType') or args.ctype
---DEBUG:print('', 'scalarType='..args.scalarType)
+--DEBUG:print('', 'scalarType='..tostring(args.scalarType))
 	args.scalarType = assert(ffi.typeof(args.scalarType))
 
 	args.dims = table(op.safeindex(ctypemt, 'dims') or {}):append{args.dim}
