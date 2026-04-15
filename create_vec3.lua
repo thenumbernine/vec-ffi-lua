@@ -16,6 +16,8 @@ cl.determinant = function(a,b,c)
 		- a.x * b.z * c.y
 end
 
+cl.det = cl.determinant
+
 -- such that a:cross(b):dot(c) = metatype.determinant(a,b,c) = volume of parallelepiped with sides a,b,c
 cl.cross = function(a,b)
 	return metatype(
@@ -49,10 +51,12 @@ cl.perpendicular = function(n)
 	end
 end
 
+cl.perp = cl.perpendicular
+
 -- if you want to calculate the 2nd basis as well
 -- n:cross(n2) should already be normalized since they are at 90' angles
 function cl.perpendicular2(n)
-	local n2 = n:perpendicular()
+	local n2 = n:perp()
 	return n2, n:cross(n2), n
 end
 

@@ -17,10 +17,14 @@ cl.determinant = function(a,b)
 	return a.x * b.y - a.y * b.x
 end
 
+cl.det = cl.determinant
+
 -- such that v:perpendicular():dot(w) = vec2.determinant(v,w) = area of parallelogram with sides v & w
 cl.perpendicular = function(v)
 	return metatype(-v.y, v.x)
 end
+
+cl.perp = cl.perpendicular
 ]],
 	}):setmetatable(nil))
 end
