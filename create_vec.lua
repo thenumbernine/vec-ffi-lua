@@ -402,7 +402,19 @@ local createVecType = function(args)
 --DEBUG:print('making vectype name', args.vectype)
 	end
 
-	args.fields = (args.fields or table{'x', 'y', 'z', 'w'}):sub(1, args.dim)
+	if not args.fields then
+		args.fields = table()
+		if args.dim >= 1 then args.fields:insert'x' end
+		if args.dim >= 2 then args.fields:insert'y' end
+		if args.dim >= 3 then args.fields:insert'z' end
+		if args.dim >= 4 then args.fields:insert'w' end
+		for i=5,math.min(args.dim, 26) do
+			args.fields:insert(string.char(i-5+('a'):byte()))
+		end
+		if args.dim > 26 then
+			error("TODO think of another field naming scheme...")
+		end
+	end
 
 	-- handoff to code's env
 	args.matrixInnerRet = matrixInnerRet
