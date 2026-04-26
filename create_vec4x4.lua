@@ -58,6 +58,9 @@ end
 
 local assert = require 'ext.assert'
 
+-- TODO
+-- 1) move to create_vec
+-- 2) have it based on like fields, i.e. fields respect row vs col major
 function cl:copy(src)
 --DEBUG:assert.eq(ffi.typeof(self), ffi.typeof(src))	-- this will false fail if I'm comparing T& with T ...  TODO removecv<>
 	ffi.copy(self.s, src.s, <?=
