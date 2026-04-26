@@ -53,11 +53,16 @@ local function modifyMetatable(cl)
 	end
 
 	-- static initializer for empty box
-	cl.empty = function()
-		return metatype(
-			vectype(<?=range(dim):mapi(function() return 'math.huge' end):concat', '?>),
-			vectype(<?=range(dim):mapi(function() return '-math.huge' end):concat', '?>)
-		)
+	cl.empty = function(b)
+		if not b then
+			return metatype(
+				vectype(<?=range(dim):mapi(function() return 'math.huge' end):concat', '?>),
+				vectype(<?=range(dim):mapi(function() return '-math.huge' end):concat', '?>)
+			)
+		else
+			b.min:set(math.huge)
+			b.max:set(-math.huge)
+		end
 	end
 
 	cl.size = function(self)
