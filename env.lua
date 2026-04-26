@@ -71,6 +71,7 @@ return function(env)
 	-- box
 
 	env.box2f = require 'vec-ffi.box2f'
+	env.box2d = require 'vec-ffi.box2d'
 	env.box2i = require 'vec-ffi.box2i'
 	env.box3d = require 'vec-ffi.box3d'
 	env.box3f = require 'vec-ffi.box3f'
