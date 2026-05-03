@@ -326,7 +326,8 @@ end
 args:
 	dim = vector dimension
 	ctype = vector element type
-	vectype = (optional) vector class name.	 default = vec<dim><suffix>
+	vectype = (optional) vector class name.	 default = vec<dim><suffix>.  TODO rename to 'name'.
+	ctypeOnly = (optional) works with struct ctor .ctypeOnly, means it is for ffi.typeof only and not anonymous-inner and not named.
 	fields = (optional) list of fields to use.  default = xyzw.
 	suffix = (optional) suffix of classname.  defaults are above.  not used if vectype is provided.
 	classCode = (optional) additional functions to put in the metatable
@@ -345,9 +346,9 @@ args:
 --]]
 local createVecType = function(args)
 --DEBUG:print'create_vec'
-	assert(args)
+	assert(args, "expected at least some arguments")
 	args = table(args)
-	assert(args.dim)
+	assert.index(args, 'dim')
 --DEBUG:print('', 'dim='..args.dim)
 	args.ctype = ffi.typeof((assert.index(args, 'ctype')))
 --DEBUG:print('', 'ctype='..tostring(args.ctype))
@@ -386,7 +387,9 @@ local createVecType = function(args)
 	-- me thinking about caching types to prevent duplicate type-generation for when I need to create arbitrary-typed results in my math operations
 	-- but I won't want to cache non-vec classes that use this, such as box, plane, quat ...
 	local cacheThisAsAVectorClass
-	if not args.vectype then
+	if not args.vectype
+	and not args.ctypeOnly
+	then
 		cacheThisAsAVectorClass = true
 
 		-- suffix is only needed for our cached-and-generated classes i.e. vec2x2f vec3x3f vec4x4f etc
@@ -423,7 +426,7 @@ local createVecType = function(args)
 	args.args = args
 
 	-- cuz I am tired of syntax highlighting being missing, and having to copy through scope so many times ...
-	args.modifyMetatable = function(cl)
+	args.modifyMetatable = function(cl, vecCType)
 		cl.ctype = args.ctype
 		cl.scalarType = args.scalarType
 		cl.dim = args.dim
@@ -449,13 +452,15 @@ local matrixIndexOffset = args.matrixIndexOffset
 
 local metatype
 
-local function modifyMetatable(cl)
-	args.modifyMetatable(cl)
+local function modifyMetatable(cl, vecCType)
+	args.modifyMetatable(cl, vecCType)
 
 
 	-- TODO get rid of this one? just use ffi.sizeof ?
 	-- or move this back to struct?
-	cl.sizeof = ffi.sizeof(cl.name)
+	cl.sizeof = args.ctypeOnly
+		and ffi.sizeof(vecCType)
+		or ffi.sizeof(cl.name)
 
 	-- TODO no more :set on cdata or table, just on raw values
 	-- use separate methods for the others
@@ -661,6 +666,7 @@ local range = require 'ext.range'
 local struct = require 'struct'
 metatype = struct{
 	name = args.vectype,
+	ctypeOnly = args.ctypeOnly,
 	union = true,
 	fields = {
 		-- struct has to come first for the ffi api to allow component initialization
@@ -712,7 +718,9 @@ return metatype
 	end
 	local metatype = func(args)
 	do
-		local vecsize = ffi.sizeof(args.vectype)
+		local vecsize = args.ctypeOnly
+			and ffi.sizeof(metatype)
+			or ffi.sizeof(args.vectype)
 		local elemsize = ffi.sizeof(args.ctype)
 		if vecsize ~= args.dim * elemsize then
 			print(metatype.code)
