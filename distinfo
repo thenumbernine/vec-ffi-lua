@@ -5,6 +5,7 @@
 name = "vec-ffi"
 files = {
 	"README.md",
+	"box2d.lua",
 	"box2f.lua",
 	"box2i.lua",
 	"box3d.lua",
