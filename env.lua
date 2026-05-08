@@ -46,6 +46,7 @@ return function(env)
 	env.vec2x2f = require 'vec-ffi.vec2x2f'
 	env.vec3x3f = require 'vec-ffi.vec3x3f'
 	env.vec4x4f = require 'vec-ffi.vec4x4f'
+	env.vec4x4fcol = require 'vec-ffi.vec4x4fcol'
 
 	local createVecType = require 'vec-ffi.create_vec'
 	local createVecNs = {

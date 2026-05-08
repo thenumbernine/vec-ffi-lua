@@ -51,6 +51,7 @@ files = {
 	"vec4ub.lua",
 	"vec4us.lua",
 	"vec4x4f.lua",
+	"vec4x4fcol.lua",
 }
 deps = {
 	"ext",
