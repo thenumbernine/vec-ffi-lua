@@ -3,6 +3,8 @@
 --------------------------------------------
 
 name = "vec-ffi"
+git = "https://github.com/thenumbernine/vec-ffi-lua"
+
 files = {
 	"README.md",
 	"box2d.lua",
