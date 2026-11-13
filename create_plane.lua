@@ -45,6 +45,7 @@ local function modifyMetatable(cl)
 	end
 
 	function cl.__eq(a,b)
+		if getmetatable(a) ~= getmetatable(b) then return false end
 		return a.n == b.n and a.negDist == b.negDist
 	end
 

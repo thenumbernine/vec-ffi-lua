@@ -467,6 +467,7 @@ local function modifyMetatable(cl, vecCType)
 	end
 
 	function cl.__eq(a,b)
+		if getmetatable(a) ~= getmetatable(b) then return false end
 		return <?=fields:mapi(function(x) return 'a.'..x..' == b.'..x end):concat(' and ')?>
 	end
 
