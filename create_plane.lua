@@ -131,6 +131,10 @@ local function modifyMetatable(cl)
 		self.negDist = self.negDist + self.n:dot(m4)
 		self.n = self.n * m3x3
 	end
+
+	cl.__tostring = function(self)
+		return '{'..self.n..', '..self.negDist..'}'
+	end
 end
 
 local range = require 'ext.range'
