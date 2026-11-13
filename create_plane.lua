@@ -40,6 +40,14 @@ local function modifyMetatable(cl)
 	cl.dim = dim
 	cl.sizeof = ffi.sizeof('<?=planeType?>')
 
+	function cl:clone()
+		return metatype(self)
+	end
+
+	function cl.__eq(a,b)
+		return a.n == b.n and a.negDist == b.negDist
+	end
+
 	-- from here on our, plane-specific functions:
 
 	cl.__unm = function(self)

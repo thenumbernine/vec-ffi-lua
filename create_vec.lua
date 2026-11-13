@@ -462,6 +462,14 @@ local function modifyMetatable(cl, vecCType)
 		and ffi.sizeof(vecCType)
 		or ffi.sizeof(cl.name)
 
+	function cl:clone()
+		return metatype(self)
+	end
+
+	function cl.__eq(a,b)
+		return <?=fields:mapi(function(x) return 'a.'..x..' == b.'..x end):concat(' and ')?>
+	end
+
 	-- TODO no more :set on cdata or table, just on raw values
 	-- use separate methods for the others
 	-- prevent some if conditions

@@ -70,12 +70,6 @@ function cl:copy(src)
 	return self
 end
 
-function cl:clone()
-	-- notice that metatype doesn't exist yet at the global scope,
-	-- just function scope after global is run
-	return metatype(self)
-end
-
 -- optimized ... default matrix-mul of arbitrary-rank inner-product is verrrry slow
 -- TODO don't override the (slow) vec.mul since it will work on arbitrary rank tensors.
 -- name this somethign else like "matmul"
