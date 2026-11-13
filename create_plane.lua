@@ -60,8 +60,13 @@ local function modifyMetatable(cl)
 	-- and p_w = -pt dot dir
 	-- x_i p_i + p_w > 0
 	cl.fromDirPt = function(self, dir, pt)
+		return self:fromDirPtUnit(dir:normalize(), pt)
+	end
+
+	-- same but assert n is already unit
+	cl.fromDirPtUnit = function(self, dir, pt)
 		-- normalize?
-		self.n = dir:normalize()
+		self.n = dir
 		self:setPt(pt)
 		return self
 	end
